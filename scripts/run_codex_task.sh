@@ -29,6 +29,10 @@ fi
 
 case "$PWD" in
   /mnt/c|/mnt/c/*)
+    if [ "$execute" = "true" ]; then
+      echo "refusing to execute Codex under /mnt/c; use a WSL Linux filesystem clone" >&2
+      exit 1
+    fi
     echo "warning: running under /mnt/c; use a WSL Linux filesystem clone by default"
     ;;
 esac

@@ -26,6 +26,7 @@ Orchestia is not an autonomous agent framework. It is a documented, human-superv
 ├── README.md
 ├── docs/
 │   ├── architecture.md
+│   ├── mvp-roadmap.md
 │   ├── security-boundaries.md
 │   └── workflow.md
 ├── prompts/
@@ -45,6 +46,7 @@ Orchestia is not an autonomous agent framework. It is a documented, human-superv
 │   ├── requests/
 │   ├── backlog/
 │   ├── tasks/
+│   ├── templates/
 │   ├── specs/
 │   ├── adr/
 │   └── reviews/

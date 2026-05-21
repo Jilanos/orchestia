@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 set -u
 
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "not inside a Git repository" >&2
+  exit 1
+fi
+
+case "$PWD" in
+  /mnt/c|/mnt/c/*)
+    echo "warning: running under /mnt/c; use a WSL Linux filesystem clone by default"
+    ;;
+esac
+
 mkdir -p task-runs
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 run_dir="task-runs/${timestamp}-tests"
