@@ -5,26 +5,26 @@
 - ID: LS-0001
 - Status: active
 - Initial need: [IN-0001 Sample Todo CLI](../initial-needs/IN-0001-sample-todo-cli.md)
-- Primary need: [PN-0002 Core Todo Features](../primary-needs/PN-0002-core-todo-features.md)
+- Primary need: [PN-0003 Validation And Docs](../primary-needs/PN-0003-validation-and-docs.md)
 
 ## Loop State
 
-- Current primary need: [PN-0002 Core Todo Features](../primary-needs/PN-0002-core-todo-features.md)
-- Current request: [REQ-0003 Sample Todo CLI Core Features](../requests/REQ-0003-sample-todo-cli-core-features.md)
-- Current backlog item: [BL-0005 Sample Todo CLI Core Features](../backlog/BL-0005-sample-todo-cli-core-features.md)
-- Current task: [TASK-0019 Sample Todo CLI Implement Core Features](../tasks/TASK-0019-sample-todo-cli-implement-core-features.md)
-- prepared Codex prompt: [todo-cli-task-0019-codex-prompt.md](../../prompts/samples/todo-cli-task-0019-codex-prompt.md)
-- Last Codex run: sample project commit `933cc67 Create todo CLI project foundation`
-- Last review: [REVIEW-0019 Sample Task 0018 Execution](../reviews/REVIEW-0019-sample-task-0018-execution.md)
-- Decision: pending
-- Next action: Execute the prepared TASK-0019 prompt in Codex from the dedicated sample workspace.
-- Stop condition: Stop if the sample workspace is dirty, the path is unsafe, Codex requests secrets, Codex needs a destructive command, tests fail repeatedly, or the implementation expands beyond core todo features.
+- Current primary need: [PN-0003 Validation And Docs](../primary-needs/PN-0003-validation-and-docs.md)
+- Current request: [REQ-0004 Sample Todo CLI Validation Docs](../requests/REQ-0004-sample-todo-cli-validation-docs.md)
+- Current backlog item: [BL-0006 Sample Todo CLI Validation Docs](../backlog/BL-0006-sample-todo-cli-validation-docs.md)
+- Current task: [TASK-0020 Sample Todo CLI Add Validation And Docs](../tasks/TASK-0020-sample-todo-cli-add-validation-and-docs.md)
+- Prepared Codex prompt: None yet
+- Last Codex run: sample project commit `1788bae Implement core todo CLI features`
+- Last review: [REVIEW-0021 Sample Task 0019 Execution](../reviews/REVIEW-0021-sample-task-0019-execution.md)
+- Decision: accept
+- Next action: Prepare or execute the validation and docs task in the dedicated sample workspace.
+- Stop condition: pending for TASK-0020 preparation or execution
 
 ## Decision
 
 Allowed values: accept, revise, split, reject.
 
-- Decision: pending
+- Decision: accept
 
 ## Stop Condition
 
@@ -35,7 +35,7 @@ Allowed values:
 - firm blocker reached
 - human stop requested
 
-- Stop condition: Stop if the sample workspace is dirty, the path is unsafe, Codex requests secrets, Codex needs a destructive command, tests fail repeatedly, or the implementation expands beyond core todo features.
+- Stop condition: pending for TASK-0020 preparation or execution
 
 ## Firm Blocker
 
@@ -45,4 +45,4 @@ Allowed values:
 
 ## Next Action
 
-- Execute the prepared TASK-0019 prompt in Codex from the dedicated sample workspace.
+- Prepare or execute the validation and docs task in the dedicated sample workspace.

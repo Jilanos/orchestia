@@ -3,18 +3,18 @@
 ## Metadata
 
 - ID: TASK-0019
-- Status: Planned
+- Status: Accepted
 - Request: [REQ-0003 Sample Todo CLI Core Features](../requests/REQ-0003-sample-todo-cli-core-features.md)
 - Backlog: [BL-0005 Sample Todo CLI Core Features](../backlog/BL-0005-sample-todo-cli-core-features.md)
 - Primary need: [PN-0002 Core Todo Features](../primary-needs/PN-0002-core-todo-features.md)
 
 ## Objective
 
-Define a planned sample task for implementing add, list, complete, and local persistence behavior.
+Implement add, list, complete, and local persistence behavior in the dedicated sample todo CLI workspace.
 
 ## Context
 
-This is a planned sample task, not executed. It depends on the foundation task being completed and accepted in a dedicated sample project workspace.
+This sample task was executed in the dedicated sample workspace at `~/ai-workspaces/orchestia-samples/todo-cli` and accepted in [REVIEW-0021](../reviews/REVIEW-0021-sample-task-0019-execution.md).
 
 ## Authorized Scope
 
@@ -42,7 +42,10 @@ This is a planned sample task, not executed. It depends on the foundation task b
 ## Test Commands
 
 ```bash
-# Planned only; exact command depends on selected runtime.
+python3 -m compileall src tests
+python3 -m unittest discover -s tests
+python3 -m py_compile todo_cli.py
+git diff --check
 ```
 
 ## Acceptance Criteria
@@ -52,6 +55,33 @@ This is a planned sample task, not executed. It depends on the foundation task b
 - User can mark todo items complete.
 - Todo items persist between runs.
 - Invalid commands return clear errors.
+
+## Execution Result
+
+- Sample project path: `~/ai-workspaces/orchestia-samples/todo-cli`
+- Baseline commit: `933cc67 Create todo CLI project foundation`
+- Sample project commit: `1788bae Implement core todo CLI features`
+- Files changed:
+  - `src/todo_cli/__main__.py`
+  - `todo_cli.py`
+  - `tests/test_smoke.py`
+  - `README.md`
+- Features implemented:
+  - add todo item
+  - list todo items
+  - mark todo item as done
+  - JSON persistence
+  - `--file` option
+  - invalid ID handling
+  - storage error handling
+  - invalid command handling
+- Checks passed:
+  - `python3 -m compileall src tests`
+  - `python3 -m unittest discover -s tests`: 7 tests
+  - `python3 -m py_compile todo_cli.py`
+  - `git diff --check`
+  - manual smoke check with `./tmp-smoke-todos.json`
+- Review decision: accept
 
 ## Watch Points
 

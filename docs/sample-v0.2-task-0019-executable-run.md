@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document prepares the executable run for `TASK-0019`, which will add core todo behavior to the existing sample todo CLI project. It does not execute Codex and does not modify the sample project.
+This document records the executable run for `TASK-0019`, which added core todo behavior to the existing sample todo CLI project.
 
 ## Source Logics Chain
 
@@ -59,6 +59,44 @@ prompts/samples/todo-cli-task-0019-codex-prompt.md
 - One local commit in the sample project.
 - No changes to the Orchestia repository.
 
+## Observed Execution Result
+
+- Sample project path: `~/ai-workspaces/orchestia-samples/todo-cli`
+- Baseline commit: `933cc67 Create todo CLI project foundation`
+- Sample project commit: `1788bae Implement core todo CLI features`
+- Files changed:
+  - `src/todo_cli/__main__.py`
+  - `todo_cli.py`
+  - `tests/test_smoke.py`
+  - `README.md`
+- Implemented features:
+  - add todo item
+  - list todo items
+  - mark todo item as done
+  - JSON persistence
+  - `--file` option
+  - invalid ID handling
+  - storage error handling
+  - invalid command handling
+  - README usage update
+- Checks passed:
+  - `python3 -m compileall src tests`
+  - `python3 -m unittest discover -s tests`: 7 tests
+  - `python3 -m py_compile todo_cli.py`
+  - `git diff --check`
+  - manual smoke check with `./tmp-smoke-todos.json`
+- Manual smoke check passed:
+  - `python3 -m todo_cli --help`
+  - `python3 -m todo_cli --file ./tmp-smoke-todos.json add "Buy milk"`
+  - `python3 -m todo_cli --file ./tmp-smoke-todos.json list`
+  - `python3 -m todo_cli --file ./tmp-smoke-todos.json done 1`
+  - `python3 -m todo_cli --file ./tmp-smoke-todos.json list`
+- The smoke file was removed.
+- The sample project final Git status was clean.
+- No push was performed from the sample project.
+- No files under `/mnt/c` were modified.
+- No secrets were read or printed.
+
 ## What To Collect After Execution
 
 - `pwd` from the sample project.
@@ -94,7 +132,7 @@ Stop the run if:
 
 ## Known Limitations
 
-- This preparation does not validate the TASK-0019 implementation yet.
-- Storage behavior should remain simple and local for the sample.
+- TASK-0019 is validated at sample scope.
+- The sample project uses a minimal `todo_cli.py` wrapper to satisfy `python3 -m todo_cli` from the repository root instead of proper packaging metadata.
 - Validation and documentation beyond core feature support are reserved for `TASK-0020`.
 - No auto push or auto merge behavior is exercised.
