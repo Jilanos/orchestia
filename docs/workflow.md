@@ -60,10 +60,20 @@ The helper records the command, output, and exit code under `task-runs/`.
 
 Use ChatGPT Business with `prompts/review_prompt.md` to review the task, diff, logs, and test evidence. The review must produce one decision: accept, revise, split, or reject.
 
-## 10. Reinjection Into ChatGPT
+## 10. Repository Audit
+
+When a repository-level check is useful, generate a local Markdown audit report:
+
+```bash
+bash scripts/audit_repo.sh
+```
+
+The script writes `repo-audit.md` under a timestamped `task-runs/` directory. Paste that report into ChatGPT Business with `prompts/repo_audit_prompt.md` to review architecture, docs, scripts, prompts, Logics memory, Git state, risks, and next tasks.
+
+## 11. Reinjection Into ChatGPT
 
 Record the review in `logics/reviews/`. Feed the accepted facts, risks, and follow-up needs back into ChatGPT Business before planning the next step.
 
-## 11. Next Task Selection
+## 12. Next Task Selection
 
 Choose the next bounded task from reviewed evidence. Do not expand execution scope mid-task; create a new task when more work is needed.
