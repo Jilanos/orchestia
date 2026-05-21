@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This sample shows how Orchestia v0.2 can represent an initial user need, decompose it into Primary need records, and track the first Loop state. It is documentation only and does not create a todo CLI or execute Codex on an external project.
+This sample shows how Orchestia v0.2 can represent an initial user need, decompose it into Primary need records, and track Loop state as sample tasks execute in a dedicated workspace.
 
 ## Sample Initial User Need
 
@@ -24,9 +24,11 @@ For this sample, [IN-0001](../logics/initial-needs/IN-0001-sample-todo-cli.md) i
 
 Task -> Codex execution -> collect outputs -> review -> accept, revise, split or reject.
 
-The sample [LS-0001 Loop state](../logics/loop-states/LS-0001-sample-todo-cli.md) starts at PN-0001 and points to planned request, backlog, and task records. No Codex execution has occurred yet.
+The sample [LS-0001 Loop state](../logics/loop-states/LS-0001-sample-todo-cli.md) started at PN-0001 and now advances to PN-0002 after the first accepted micro loop.
 
-The current micro loop points to [REQ-0002](../logics/requests/REQ-0002-sample-todo-cli-foundation.md), [BL-0004](../logics/backlog/BL-0004-sample-todo-cli-foundation.md), and [TASK-0018](../logics/tasks/TASK-0018-sample-todo-cli-create-project-foundation.md).
+The accepted first micro loop used [REQ-0002](../logics/requests/REQ-0002-sample-todo-cli-foundation.md), [BL-0004](../logics/backlog/BL-0004-sample-todo-cli-foundation.md), and [TASK-0018](../logics/tasks/TASK-0018-sample-todo-cli-create-project-foundation.md). The sample project commit is `933cc67 Create todo CLI project foundation`, reviewed in [REVIEW-0019](../logics/reviews/REVIEW-0019-sample-task-0018-execution.md).
+
+The current micro loop now points to [REQ-0003](../logics/requests/REQ-0003-sample-todo-cli-core-features.md), [BL-0005](../logics/backlog/BL-0005-sample-todo-cli-core-features.md), and [TASK-0019](../logics/tasks/TASK-0019-sample-todo-cli-implement-core-features.md).
 
 ## Expanded Logics Chain
 
@@ -59,20 +61,20 @@ The current micro loop points to [REQ-0002](../logics/requests/REQ-0002-sample-t
 - The macro loop can be represented with linked Logics records.
 - The micro loop can be initialized before any Codex execution occurs.
 - Planned request, backlog, and task records can be linked clearly.
+- The first task execution can be accepted and used to advance the loop state.
 
 ## What Is Not Validated
 
-- No todo CLI source code is created.
-- No Codex execution occurs.
-- No external project is modified.
+- Core todo features are not implemented.
+- TASK-0019 has not been executed.
 - No auto push or auto merge behavior is exercised.
 
 ## Known Limitations
 
-- Planned sample tasks are not executed and do not authorize work in this repository.
+- Remaining planned sample tasks are not executed and do not authorize work in this repository.
 - Completion criteria are sample-level and would need refinement before execution.
-- This sample demonstrates state shape, not implementation quality.
+- This sample demonstrates state progression, not production implementation quality.
 
 ## Next Recommended Task
 
-Run the planned foundation task only in a dedicated sample project workspace.
+Prepare or execute [TASK-0019](../logics/tasks/TASK-0019-sample-todo-cli-implement-core-features.md) in the dedicated sample project workspace.

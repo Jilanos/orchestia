@@ -3,18 +3,18 @@
 ## Metadata
 
 - ID: TASK-0018
-- Status: Planned
+- Status: Accepted
 - Request: [REQ-0002 Sample Todo CLI Foundation](../requests/REQ-0002-sample-todo-cli-foundation.md)
 - Backlog: [BL-0004 Sample Todo CLI Foundation](../backlog/BL-0004-sample-todo-cli-foundation.md)
 - Primary need: [PN-0001 Project Foundation](../primary-needs/PN-0001-project-foundation.md)
 
 ## Objective
 
-Define a planned sample task for creating the todo CLI project foundation in a dedicated sample project workspace.
+Create the todo CLI project foundation in a dedicated sample project workspace.
 
 ## Context
 
-This is a planned sample task, not executed. It exists to show how PN-0001 would become an executable Codex task in a future dedicated sample workspace.
+This sample task was executed in the dedicated sample workspace at `~/ai-workspaces/orchestia-samples/todo-cli` and accepted in [REVIEW-0019](../reviews/REVIEW-0019-sample-task-0018-execution.md).
 
 ## Authorized Scope
 
@@ -42,7 +42,8 @@ This is a planned sample task, not executed. It exists to show how PN-0001 would
 ## Test Commands
 
 ```bash
-# Planned only; exact command depends on selected runtime.
+python3 -m compileall src tests
+python3 -m unittest discover -s tests
 ```
 
 ## Acceptance Criteria
@@ -50,7 +51,24 @@ This is a planned sample task, not executed. It exists to show how PN-0001 would
 - Project structure exists in the dedicated sample workspace.
 - CLI placeholder can run.
 - Runtime and verification command are documented.
-- No Orchestia repository files are modified during future execution.
+- No Orchestia repository files were modified during execution.
+
+## Execution Result
+
+- Sample project path: `~/ai-workspaces/orchestia-samples/todo-cli`
+- Sample project commit: `933cc67 Create todo CLI project foundation`
+- Runtime: Python standard library only
+- Files created:
+  - `.gitignore`
+  - `README.md`
+  - `src/todo_cli/__init__.py`
+  - `src/todo_cli/__main__.py`
+  - `tests/test_smoke.py`
+- Checks passed:
+  - `git status --short`: clean
+  - `python3 -m compileall src tests`
+  - `python3 -m unittest discover -s tests`: 2 tests OK
+- Review decision: accept
 
 ## Watch Points
 

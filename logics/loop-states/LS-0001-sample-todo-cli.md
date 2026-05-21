@@ -5,26 +5,26 @@
 - ID: LS-0001
 - Status: active
 - Initial need: [IN-0001 Sample Todo CLI](../initial-needs/IN-0001-sample-todo-cli.md)
-- Primary need: [PN-0001 Project Foundation](../primary-needs/PN-0001-project-foundation.md)
+- Primary need: [PN-0002 Core Todo Features](../primary-needs/PN-0002-core-todo-features.md)
 
 ## Loop State
 
-- Current primary need: [PN-0001 Project Foundation](../primary-needs/PN-0001-project-foundation.md)
-- Current request: [REQ-0002 Sample Todo CLI Foundation](../requests/REQ-0002-sample-todo-cli-foundation.md)
-- Current backlog item: [BL-0004 Sample Todo CLI Foundation](../backlog/BL-0004-sample-todo-cli-foundation.md)
-- Current task: [TASK-0018 Sample Todo CLI Create Project Foundation](../tasks/TASK-0018-sample-todo-cli-create-project-foundation.md)
-- prepared Codex prompt: [todo-cli-task-0018-codex-prompt.md](../../prompts/samples/todo-cli-task-0018-codex-prompt.md)
-- Last Codex run: None
-- Last review: None
-- Decision: pending
-- Next action: Execute the prepared prompt in Codex from a dedicated sample workspace.
-- Stop condition: Stop if the workspace path is unsafe, the target directory already contains unrelated files, Codex requests secrets, or Codex needs a destructive command.
+- Current primary need: [PN-0002 Core Todo Features](../primary-needs/PN-0002-core-todo-features.md)
+- Current request: [REQ-0003 Sample Todo CLI Core Features](../requests/REQ-0003-sample-todo-cli-core-features.md)
+- Current backlog item: [BL-0005 Sample Todo CLI Core Features](../backlog/BL-0005-sample-todo-cli-core-features.md)
+- Current task: [TASK-0019 Sample Todo CLI Implement Core Features](../tasks/TASK-0019-sample-todo-cli-implement-core-features.md)
+- Prepared Codex prompt: None yet
+- Last Codex run: sample project commit `933cc67 Create todo CLI project foundation`
+- Last review: [REVIEW-0019 Sample Task 0018 Execution](../reviews/REVIEW-0019-sample-task-0018-execution.md)
+- Decision: accept
+- Next action: Prepare or execute the core features task in the dedicated sample workspace.
+- Stop condition: pending for TASK-0019 preparation or execution
 
 ## Decision
 
 Allowed values: accept, revise, split, reject.
 
-- Decision: pending
+- Decision: accept
 
 ## Stop Condition
 
@@ -35,7 +35,7 @@ Allowed values:
 - firm blocker reached
 - human stop requested
 
-- Stop condition: Stop if the workspace path is unsafe, the target directory already contains unrelated files, Codex requests secrets, or Codex needs a destructive command.
+- Stop condition: pending for TASK-0019 preparation or execution
 
 ## Firm Blocker
 
@@ -45,4 +45,4 @@ Allowed values:
 
 ## Next Action
 
-- Execute the prepared prompt in Codex from a dedicated sample workspace.
+- Prepare or execute the core features task in the dedicated sample workspace.

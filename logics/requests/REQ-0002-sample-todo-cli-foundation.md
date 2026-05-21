@@ -3,7 +3,7 @@
 ## Metadata
 
 - ID: REQ-0002
-- Status: Planned
+- Status: Accepted
 - Initial need: [IN-0001 Sample Todo CLI](../initial-needs/IN-0001-sample-todo-cli.md)
 - Primary need: [PN-0001 Project Foundation](../primary-needs/PN-0001-project-foundation.md)
 - Proposed backlog item: [BL-0004 Sample Todo CLI Foundation](../backlog/BL-0004-sample-todo-cli-foundation.md)
@@ -18,6 +18,7 @@ The sample todo CLI needs a project foundation before any feature work can be pl
 - Project structure is defined.
 - Minimal CLI entry point scope is clear.
 - First executable task can be created from the request.
+- Sample foundation task is executed and accepted.
 
 ## Constraints
 
@@ -35,3 +36,9 @@ The sample todo CLI needs a project foundation before any feature work can be pl
 ## Proposed Backlog Item
 
 - [BL-0004 Sample Todo CLI Foundation](../backlog/BL-0004-sample-todo-cli-foundation.md)
+
+## Result
+
+- Accepted by [REVIEW-0019](../reviews/REVIEW-0019-sample-task-0018-execution.md).
+- Sample project commit: `933cc67 Create todo CLI project foundation`.
+- No push was performed from the sample project.

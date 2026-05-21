@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document prepares the first executable sample run for the v0.2 todo CLI scenario. It does not execute Codex, create the sample project, or modify any external workspace.
+This document records the first executable sample run for the v0.2 todo CLI scenario.
 
 ## Source Logics Chain
 
@@ -52,6 +52,25 @@ prompts/samples/todo-cli-task-0018-codex-prompt.md
 - One local initial commit in the sample project.
 - No changes to the Orchestia repository.
 
+## Observed Execution Result
+
+- Sample project path: `~/ai-workspaces/orchestia-samples/todo-cli`
+- Sample project commit: `933cc67 Create todo CLI project foundation`
+- Runtime: Python standard library only
+- Files observed:
+  - `.gitignore`
+  - `README.md`
+  - `src/todo_cli/__init__.py`
+  - `src/todo_cli/__main__.py`
+  - `tests/test_smoke.py`
+- Checks passed:
+  - `git status --short`: clean
+  - `python3 -m compileall src tests`
+  - `python3 -m unittest discover -s tests`: 2 tests OK
+- No push was performed from the sample project.
+- Orchestia remained clean after execution.
+- The full todo feature set was not implemented.
+
 ## What To Collect After Execution
 
 - `pwd` from the sample project.
@@ -81,7 +100,7 @@ Stop the run if:
 
 ## Known Limitations
 
-- This preparation does not validate the sample project yet.
-- Runtime choice is deferred to Codex execution and must remain dependency-light.
+- The sample project foundation is validated, but only at foundation scope.
+- Runtime choice was Python standard library only.
 - The sample run covers project foundation only, not core todo features.
 - No auto push or auto merge behavior is exercised.

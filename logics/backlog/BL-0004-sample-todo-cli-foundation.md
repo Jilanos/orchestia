@@ -3,7 +3,7 @@
 ## Metadata
 
 - ID: BL-0004
-- Status: Planned
+- Status: Accepted
 - Request: [REQ-0002 Sample Todo CLI Foundation](../requests/REQ-0002-sample-todo-cli-foundation.md)
 - Primary need: [PN-0001 Project Foundation](../primary-needs/PN-0001-project-foundation.md)
 
@@ -20,6 +20,7 @@ Plan the first execution slice for creating the sample todo CLI project foundati
 - Foundation scope is clear.
 - First task is bounded and explicitly marked as a planned sample task.
 - Future execution requires a dedicated sample project workspace.
+- Foundation task execution is accepted.
 
 ## Dependencies
 
@@ -30,3 +31,9 @@ Plan the first execution slice for creating the sample todo CLI project foundati
 
 - The task could be mistaken for authorized execution in this repository.
 - Runtime choice may need a human decision before execution.
+
+## Result
+
+- Completed task: [TASK-0018 Sample Todo CLI Create Project Foundation](../tasks/TASK-0018-sample-todo-cli-create-project-foundation.md)
+- Review: [REVIEW-0019 Sample Task 0018 Execution](../reviews/REVIEW-0019-sample-task-0018-execution.md)
+- Sample project commit: `933cc67 Create todo CLI project foundation`
