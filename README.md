@@ -129,6 +129,7 @@ WSL is not a strong sandbox. Do not read, print, summarize, or log secrets. Do n
 - [Workflow](docs/workflow.md)
 - [MVP roadmap](docs/mvp-roadmap.md)
 - [Prompt Templates](prompts/)
+- [Logics Templates](logics/templates/)
 - [Logics Requests](logics/requests/)
 - [Logics Backlog](logics/backlog/)
 - [Logics Tasks](logics/tasks/)

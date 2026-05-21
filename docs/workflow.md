@@ -20,6 +20,8 @@ Record approved slices in `logics/backlog/`. Each slice should state scope, valu
 
 Create a bounded task in `logics/tasks/` using `prompts/codex_task_prompt.md`. The task should include objective, context, authorized scope, out-of-scope actions, expected steps, test commands, acceptance criteria, watch points, and security rules.
 
+Use `logics/templates/task_template.md` when creating a new task file.
+
 ## 6. Manual Or Semi-Manual Codex Execution
 
 Print the Codex command first:
@@ -59,6 +61,8 @@ The helper records the command, output, and exit code under `task-runs/`.
 ## 9. Review
 
 Use ChatGPT Business with `prompts/review_prompt.md` to review the task, diff, logs, and test evidence. The review must produce one decision: accept, revise, split, or reject.
+
+Use `logics/templates/review_template.md` when recording the review in Logics memory.
 
 ## 10. Repository Audit
 
