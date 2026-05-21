@@ -3,24 +3,46 @@ set -u
 
 mkdir -p task-runs
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-output_file="task-runs/${timestamp}-test-results.txt"
+run_dir="task-runs/${timestamp}-tests"
+mkdir -p "$run_dir"
+
+command_file="$run_dir/test-command.txt"
+output_file="$run_dir/test-output.txt"
+exit_code_file="$run_dir/test-exit-code.txt"
 
 if [ "$#" -eq 0 ]; then
-  echo "No test command provided." > "$output_file"
-  echo "Provide a command to execute and capture, for example:"
-  echo "$0 npm test"
-  echo "Wrote $output_file"
+  echo "No test command provided."
+  echo "Usage: $0 -- <command> [args...]"
+  echo "Run directory: $run_dir"
   exit 0
 fi
 
-echo "Command: $*" > "$output_file"
-echo "Started: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$output_file"
+if [ "$1" != "--" ]; then
+  echo "Test commands must be provided after --"
+  echo "Usage: $0 -- <command> [args...]"
+  echo "Run directory: $run_dir"
+  exit 0
+fi
 
-"$@" >> "$output_file" 2>&1
+shift
+
+if [ "$#" -eq 0 ]; then
+  echo "No test command provided after --."
+  echo "Usage: $0 -- <command> [args...]"
+  echo "Run directory: $run_dir"
+  exit 0
+fi
+
+printf '%q ' "$@" > "$command_file"
+printf '\n' >> "$command_file"
+
+set +e
+"$@" > "$output_file" 2>&1
 exit_code=$?
+set -u
 
-echo "Finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$output_file"
-echo "Exit code: $exit_code" >> "$output_file"
-echo "Wrote $output_file"
+printf '%s\n' "$exit_code" > "$exit_code_file"
 
+echo "Run directory: $run_dir"
+echo "Exit code: $exit_code"
 exit "$exit_code"

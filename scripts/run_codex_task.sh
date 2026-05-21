@@ -1,19 +1,50 @@
 #!/usr/bin/env bash
 set -u
 
-if [ "$#" -ne 1 ]; then
-  echo "usage: $0 <task-file>" >&2
+usage() {
+  echo "usage: $0 [--execute] <task-file>" >&2
+}
+
+execute=false
+
+if [ "$#" -eq 2 ] && [ "$1" = "--execute" ]; then
+  execute=true
+  task_file="$2"
+elif [ "$#" -eq 1 ]; then
+  task_file="$1"
+else
+  usage
   exit 2
 fi
-
-task_file="$1"
 
 if [ ! -f "$task_file" ]; then
   echo "task file not found: $task_file" >&2
   exit 1
 fi
 
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "not inside a Git repository" >&2
+  exit 1
+fi
+
+case "$PWD" in
+  /mnt/c|/mnt/c/*)
+    echo "warning: running under /mnt/c; use a WSL Linux filesystem clone by default"
+    ;;
+esac
+
 echo "Task file: $task_file"
-echo "Indicative command:"
-echo "codex \"$(sed 's/"/\\"/g' "$task_file")\""
-echo "No command was executed by this helper."
+echo "Copyable command:"
+printf 'codex < %q\n' "$task_file"
+
+if [ "$execute" != "true" ]; then
+  echo "No command was executed. Pass --execute to run Codex."
+  exit 0
+fi
+
+if ! command -v codex >/dev/null 2>&1; then
+  echo "codex command not found" >&2
+  exit 1
+fi
+
+codex < "$task_file"

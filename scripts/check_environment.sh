@@ -3,32 +3,42 @@ set -u
 
 echo "Current directory: $PWD"
 
-if [ -z "${BASH_VERSION:-}" ]; then
-  echo "bash: not detected"
-else
-  echo "bash: detected ($BASH_VERSION)"
-fi
-
-if command -v git >/dev/null 2>&1; then
-  echo "git: detected ($(git --version))"
-else
-  echo "git: missing"
-fi
-
-if command -v gh >/dev/null 2>&1; then
-  echo "gh: detected ($(gh --version | head -n 1))"
-else
-  echo "gh: missing"
-fi
-
-if command -v codex >/dev/null 2>&1; then
-  echo "codex: detected ($(codex --version 2>/dev/null | head -n 1))"
-else
-  echo "codex: missing"
-fi
-
 case "$PWD" in
-  *"/mnt/c"*)
-    echo "warning: current path contains /mnt/c; avoid Windows-mounted paths by default in WSL"
+  /mnt/c|/mnt/c/*)
+    echo "warning: running under /mnt/c; use a WSL Linux filesystem clone by default"
+    ;;
+  *)
+    echo "Path check: not under /mnt/c"
     ;;
 esac
+
+print_tool() {
+  tool_name="$1"
+  label="$2"
+  version_command="$3"
+
+  if command -v "$tool_name" >/dev/null 2>&1; then
+    version="$($version_command 2>/dev/null | head -n 1 || true)"
+    if [ -n "$version" ]; then
+      echo "$label: found ($version)"
+    else
+      echo "$label: found"
+    fi
+  else
+    echo "$label: missing"
+  fi
+}
+
+echo
+echo "Required tools:"
+print_tool "bash" "bash" "bash --version"
+print_tool "git" "git" "git --version"
+
+echo
+echo "Optional tools:"
+print_tool "gh" "gh" "gh --version"
+print_tool "node" "node" "node --version"
+print_tool "npm" "npm" "npm --version"
+print_tool "codex" "codex" "codex --version"
+
+exit 0
