@@ -23,6 +23,8 @@ Orchestia policy defines Manual mode, Assisted mode, Auto branch mode, and Contr
 
 For v0.2, Orchestia is moving toward iterative need-to-completion orchestration: initial need, primary needs, requests, backlog items, tasks, Codex execution, collected evidence, review, and repeat until complete or blocked. Controlled auto push and controlled auto merge are planned only for fresh projects or isolated branches under explicit guardrails. Orchestia remains human-supervised, not fully autonomous.
 
+The minimal v0.2 state model is documented in [Orchestration State Model](docs/orchestration-state-model.md), with initial need, primary need, and loop state templates under `logics/templates/`.
+
 ## Repository Structure
 
 ```text
@@ -135,6 +137,7 @@ WSL is not a strong sandbox. Do not read, print, summarize, or log secrets. Do n
 - [Architecture](docs/architecture.md)
 - [Security Boundaries](docs/security-boundaries.md)
 - [Workflow](docs/workflow.md)
+- [Orchestration State Model](docs/orchestration-state-model.md)
 - [MVP roadmap](docs/mvp-roadmap.md)
 - [validation checklist](docs/validation-checklist.md)
 - [Sample end-to-end run](docs/sample-end-to-end-run.md)
