@@ -10,6 +10,8 @@ The minimal state model for v0.2 is defined in [Orchestration State Model](orche
 
 The v0.2 orchestration prompts are `prompts/initial_need_intake_prompt.md`, `prompts/primary_need_decomposition_prompt.md`, and `prompts/orchestration_loop_prompt.md`.
 
+A sample v0.2 scenario is documented in [Sample v0.2 Orchestration Scenario](sample-v0.2-orchestration-scenario.md).
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
@@ -107,10 +109,10 @@ For v0.2, Orchestia may support controlled auto branch execution, controlled aut
 
 ## v0.2 Candidate Tasks
 
-1. Use the orchestration state templates and prompts for one manual v0.2 run.
+1. Create planned request, backlog, and task records for the sample PN-0001 project foundation need.
 2. Add execution mode fields to Logics task templates.
 3. Add review schema fields for primary need completion and blockers.
-4. Define a manual primary-need decomposition example.
+4. Define a manual primary-need decomposition example against a real project.
 5. Implement guarded auto branch checks.
 6. Implement guarded auto push for isolated branches.
 7. Implement controlled auto merge checks.
