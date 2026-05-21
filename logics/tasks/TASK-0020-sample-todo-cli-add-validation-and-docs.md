@@ -3,18 +3,18 @@
 ## Metadata
 
 - ID: TASK-0020
-- Status: Planned
+- Status: Accepted
 - Request: [REQ-0004 Sample Todo CLI Validation And Docs](../requests/REQ-0004-sample-todo-cli-validation-docs.md)
 - Backlog: [BL-0006 Sample Todo CLI Validation And Docs](../backlog/BL-0006-sample-todo-cli-validation-docs.md)
 - Primary need: [PN-0003 Validation And Docs](../primary-needs/PN-0003-validation-and-docs.md)
 
 ## Objective
 
-Define a planned sample task for adding validation checks and concise user documentation.
+Add validation checks and concise user documentation in the dedicated sample todo CLI workspace.
 
 ## Context
 
-This is a planned sample task, not executed. It depends on foundation and core features being completed and accepted in a dedicated sample project workspace.
+This sample task was executed in the dedicated sample workspace at `~/ai-workspaces/orchestia-samples/todo-cli` and accepted in [REVIEW-0023](../reviews/REVIEW-0023-sample-task-0020-execution.md).
 
 ## Authorized Scope
 
@@ -42,7 +42,10 @@ This is a planned sample task, not executed. It depends on foundation and core f
 ## Test Commands
 
 ```bash
-# Planned only; exact command depends on selected runtime.
+python3 -m compileall src tests
+python3 -m unittest discover -s tests
+python3 -m py_compile todo_cli.py
+git diff --check
 ```
 
 ## Acceptance Criteria
@@ -51,6 +54,23 @@ This is a planned sample task, not executed. It depends on foundation and core f
 - Usage documentation explains add, list, and complete.
 - Known limitations are documented.
 - Review can compare implementation with IN-0001 success criteria.
+
+## Execution Result
+
+- Sample project path: `~/ai-workspaces/orchestia-samples/todo-cli`
+- Baseline commit: `1788bae Implement core todo CLI features`
+- Sample project commit: `728b946 Improve todo CLI validation and docs`
+- Files changed:
+  - `README.md`
+  - `src/todo_cli/__main__.py`
+  - `tests/test_smoke.py`
+- Checks passed:
+  - `python3 -m compileall src tests`
+  - `python3 -m unittest discover -s tests`: 11 tests
+  - `python3 -m py_compile todo_cli.py`
+  - `git diff --check`
+- Manual smoke check: passed during TASK-0020 execution using a temporary JSON file.
+- Review decision: accept
 
 ## Watch Points
 

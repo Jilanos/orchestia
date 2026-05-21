@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document prepares the executable run for `TASK-0020`, which will improve validation and documentation for the existing sample todo CLI project. It does not execute Codex and does not modify the sample project.
+This document records the executable run for `TASK-0020`, which improved validation and documentation for the existing sample todo CLI project.
 
 ## Source Logics Chain
 
@@ -58,6 +58,27 @@ prompts/samples/todo-cli-task-0020-codex-prompt.md
 - One local commit in the sample project.
 - No changes to the Orchestia repository.
 
+## Observed Execution Result
+
+- Sample project path: `~/ai-workspaces/orchestia-samples/todo-cli`
+- Baseline commit: `1788bae Implement core todo CLI features`
+- Latest sample project commit: `728b946 Improve todo CLI validation and docs`
+- Files changed:
+  - `README.md`
+  - `src/todo_cli/__main__.py`
+  - `tests/test_smoke.py`
+- Checks passed:
+  - `python3 -m compileall src tests`
+  - `python3 -m unittest discover -s tests`: 11 tests
+  - `python3 -m py_compile todo_cli.py`
+  - `git diff --check`
+- Manual smoke check: passed during TASK-0020 execution using a temporary JSON file.
+- Final sample project Git status: clean.
+- No push was performed from the sample project.
+- No files under `/mnt/c` were modified.
+- No secrets were read or printed.
+- The sample v0.2 initial need is complete.
+
 ## What To Collect After Execution
 
 - `pwd` from the sample project.
@@ -95,7 +116,7 @@ Stop the run if:
 
 ## Known Limitations
 
-- This preparation does not validate the TASK-0020 implementation yet.
+- TASK-0020 is validated at sample scope.
 - The sample still uses a minimal `todo_cli.py` wrapper instead of packaging metadata.
 - Packaging metadata, CI, release automation, and distribution are not part of TASK-0020.
 - No auto push or auto merge behavior is exercised.

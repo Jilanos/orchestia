@@ -3,11 +3,11 @@
 ## Metadata
 
 - ID: PN-0003
-- Status: accepted
+- Status: complete
 - Initial need: [IN-0001 Sample Todo CLI](../initial-needs/IN-0001-sample-todo-cli.md)
-- Related request: `REQ-TODO-0003-validation-docs.md` (planned)
-- Related backlog items: `BL-TODO-0003-validation-docs.md` (planned)
-- Related tasks: `TASK-TODO-0003-add-validation-docs.md` (planned)
+- Related request: [REQ-0004 Sample Todo CLI Validation And Docs](../requests/REQ-0004-sample-todo-cli-validation-docs.md)
+- Related backlog items: [BL-0006 Sample Todo CLI Validation And Docs](../backlog/BL-0006-sample-todo-cli-validation-docs.md)
+- Related tasks: [TASK-0020 Sample Todo CLI Add Validation And Docs](../tasks/TASK-0020-sample-todo-cli-add-validation-and-docs.md)
 
 ## Objective
 
@@ -22,16 +22,22 @@ Add validation checks and concise user documentation for the sample todo CLI.
 
 ## Related Future Request/Backlog/Task Chain
 
-- Planned request: `logics/requests/REQ-TODO-0003-validation-docs.md`
-- Planned backlog item: `logics/backlog/BL-TODO-0003-validation-docs.md`
-- Planned task: `logics/tasks/TASK-TODO-0003-add-validation-docs.md`
+- Request: [REQ-0004 Sample Todo CLI Validation And Docs](../requests/REQ-0004-sample-todo-cli-validation-docs.md)
+- Backlog item: [BL-0006 Sample Todo CLI Validation And Docs](../backlog/BL-0006-sample-todo-cli-validation-docs.md)
+- Task: [TASK-0020 Sample Todo CLI Add Validation And Docs](../tasks/TASK-0020-sample-todo-cli-add-validation-and-docs.md)
 
 ## Status
 
 Allowed values: proposed, accepted, in_progress, complete, blocked, out_of_scope.
 
-- Status: accepted
+- Status: complete
+
+## Result
+
+- Accepted by [REVIEW-0023](../reviews/REVIEW-0023-sample-task-0020-execution.md).
+- Sample project commit: `728b946 Improve todo CLI validation and docs`.
+- Validation and documentation complete; all sample primary needs are complete.
 
 ## Blockers
 
-- Depends on PN-0001 project foundation and PN-0002 core todo features.
+- None.

@@ -3,7 +3,7 @@
 ## Metadata
 
 - ID: REQ-0004
-- Status: Planned
+- Status: Accepted
 - Initial need: [IN-0001 Sample Todo CLI](../initial-needs/IN-0001-sample-todo-cli.md)
 - Primary need: [PN-0003 Validation And Docs](../primary-needs/PN-0003-validation-and-docs.md)
 - Proposed backlog item: [BL-0006 Sample Todo CLI Validation And Docs](../backlog/BL-0006-sample-todo-cli-validation-docs.md)
@@ -18,6 +18,7 @@ The sample todo CLI needs validation checks and concise usage documentation befo
 - Basic usage documentation is planned.
 - Known limitations are planned.
 - Completion review can compare the implementation against IN-0001 success criteria.
+- Validation and documentation task is executed and accepted.
 
 ## Constraints
 
@@ -35,3 +36,9 @@ The sample todo CLI needs validation checks and concise usage documentation befo
 ## Proposed Backlog Item
 
 - [BL-0006 Sample Todo CLI Validation And Docs](../backlog/BL-0006-sample-todo-cli-validation-docs.md)
+
+## Result
+
+- Accepted by [REVIEW-0023](../reviews/REVIEW-0023-sample-task-0020-execution.md).
+- Sample project commit: `728b946 Improve todo CLI validation and docs`.
+- The sample initial need is complete.

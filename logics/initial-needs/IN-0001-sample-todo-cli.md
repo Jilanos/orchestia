@@ -3,7 +3,7 @@
 ## Metadata
 
 - ID: IN-0001
-- Status: decomposed
+- Status: complete
 - Created: 2026-05-21
 - Review: [REVIEW-0016 Sample v0.2 Orchestration Scenario](../reviews/REVIEW-0016-sample-v0.2-orchestration-scenario.md)
 
@@ -44,8 +44,13 @@ Build a small local todo CLI that can add, list, complete, and persist todo item
 
 Allowed values: intake, decomposed, in_progress, complete, blocked, cancelled.
 
-- Status: decomposed
+- Status: complete
 
 ## Notes
 
-- This is a sample Initial need for demonstrating Orchestia v0.2 state, not an implementation request.
+- This sample Initial need is complete.
+- All three primary needs are complete:
+  - [PN-0001 Project Foundation](../primary-needs/PN-0001-project-foundation.md)
+  - [PN-0002 Core Todo Features](../primary-needs/PN-0002-core-todo-features.md)
+  - [PN-0003 Validation And Docs](../primary-needs/PN-0003-validation-and-docs.md)
+- Completion review: [REVIEW-0023 Sample Task 0020 Execution](../reviews/REVIEW-0023-sample-task-0020-execution.md)
