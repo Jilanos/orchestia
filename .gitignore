@@ -1,0 +1,21 @@
+# Runtime task outputs
+task-runs/*
+!task-runs/.gitkeep
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local dependencies and build outputs
+node_modules/
+dist/
+build/
+coverage/
+
+# Python caches
+__pycache__/
+*.pyc
+
+# System files
+.DS_Store
