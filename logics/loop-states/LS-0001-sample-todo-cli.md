@@ -13,11 +13,12 @@
 - Current request: [REQ-0002 Sample Todo CLI Foundation](../requests/REQ-0002-sample-todo-cli-foundation.md)
 - Current backlog item: [BL-0004 Sample Todo CLI Foundation](../backlog/BL-0004-sample-todo-cli-foundation.md)
 - Current task: [TASK-0018 Sample Todo CLI Create Project Foundation](../tasks/TASK-0018-sample-todo-cli-create-project-foundation.md)
+- prepared Codex prompt: [todo-cli-task-0018-codex-prompt.md](../../prompts/samples/todo-cli-task-0018-codex-prompt.md)
 - Last Codex run: None
 - Last review: None
 - Decision: pending
-- Next action: Run the planned foundation task only in a dedicated sample project workspace.
-- Stop condition: pending
+- Next action: Execute the prepared prompt in Codex from a dedicated sample workspace.
+- Stop condition: Stop if the workspace path is unsafe, the target directory already contains unrelated files, Codex requests secrets, or Codex needs a destructive command.
 
 ## Decision
 
@@ -34,7 +35,7 @@ Allowed values:
 - firm blocker reached
 - human stop requested
 
-- Stop condition: pending
+- Stop condition: Stop if the workspace path is unsafe, the target directory already contains unrelated files, Codex requests secrets, or Codex needs a destructive command.
 
 ## Firm Blocker
 
@@ -44,4 +45,4 @@ Allowed values:
 
 ## Next Action
 
-- Run the planned foundation task only in a dedicated sample project workspace.
+- Execute the prepared prompt in Codex from a dedicated sample workspace.
