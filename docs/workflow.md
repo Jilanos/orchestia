@@ -8,6 +8,8 @@ Initial user need -> primary needs -> request per primary need -> backlog items 
 
 The loop continues until the initial need is complete, all remaining work is explicitly out of scope, or a firm blocker prevents safe progress.
 
+Use `prompts/initial_need_intake_prompt.md`, `prompts/primary_need_decomposition_prompt.md`, and `prompts/orchestration_loop_prompt.md` to run this loop manually before any automation exists.
+
 ## Macro Loop
 
 The macro loop is:

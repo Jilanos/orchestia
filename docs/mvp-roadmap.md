@@ -8,6 +8,8 @@ The next goal is v0.2: iterative need-to-completion orchestration.
 
 The minimal state model for v0.2 is defined in [Orchestration State Model](orchestration-state-model.md), with reusable templates in `logics/templates/`.
 
+The v0.2 orchestration prompts are `prompts/initial_need_intake_prompt.md`, `prompts/primary_need_decomposition_prompt.md`, and `prompts/orchestration_loop_prompt.md`.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
@@ -105,12 +107,11 @@ For v0.2, Orchestia may support controlled auto branch execution, controlled aut
 
 ## v0.2 Candidate Tasks
 
-1. Use the orchestration state templates for one manual v0.2 run.
+1. Use the orchestration state templates and prompts for one manual v0.2 run.
 2. Add execution mode fields to Logics task templates.
-3. Update prompts to generate primary needs, requests, backlog items, and executable tasks.
-4. Add review schema fields for primary need completion and blockers.
-5. Define a manual primary-need decomposition example.
-6. Implement guarded auto branch checks.
-7. Implement guarded auto push for isolated branches.
-8. Implement controlled auto merge checks.
-9. Update validation checklist for v0.2 execution modes.
+3. Add review schema fields for primary need completion and blockers.
+4. Define a manual primary-need decomposition example.
+5. Implement guarded auto branch checks.
+6. Implement guarded auto push for isolated branches.
+7. Implement controlled auto merge checks.
+8. Update validation checklist for v0.2 execution modes.

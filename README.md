@@ -25,6 +25,8 @@ For v0.2, Orchestia is moving toward iterative need-to-completion orchestration:
 
 The minimal v0.2 state model is documented in [Orchestration State Model](docs/orchestration-state-model.md), with initial need, primary need, and loop state templates under `logics/templates/`.
 
+v0.2 orchestration prompts live in `prompts/initial_need_intake_prompt.md`, `prompts/primary_need_decomposition_prompt.md`, and `prompts/orchestration_loop_prompt.md`.
+
 ## Repository Structure
 
 ```text
@@ -39,7 +41,10 @@ The minimal v0.2 state model is documented in [Orchestration State Model](docs/o
 │   └── workflow.md
 ├── prompts/
 │   ├── codex_task_prompt.md
+│   ├── initial_need_intake_prompt.md
+│   ├── orchestration_loop_prompt.md
 │   ├── planning_prompt.md
+│   ├── primary_need_decomposition_prompt.md
 │   ├── repo_audit_prompt.md
 │   ├── research_prompt.md
 │   └── review_prompt.md
