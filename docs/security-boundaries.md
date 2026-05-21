@@ -2,48 +2,48 @@
 
 ## WSL Is Not a Strong Sandbox
 
-WSL is useful for Linux-compatible tooling, but it is not a strong isolation boundary. Commands can still affect files and processes available to the current user.
+WSL is the preferred execution environment for Orchestia, but it is not a strong sandbox. Commands can affect files and processes available to the current user.
 
-## Avoid `/mnt/c` by Default
+## Workspace Location
 
-Do not work under `/mnt/c` unless a human explicitly approves that path. Prefer a Linux filesystem location for active repositories when using WSL.
+Do not work under `/mnt/c` by default. Keep active repositories under the WSL Linux filesystem unless a human explicitly approves a mounted Windows path.
 
-## Secret Handling
+## Secrets
 
-- Do not read or display secrets.
-- Do not inspect token files, SSH keys, credential stores, browser profiles, or `.env` files without explicit instruction.
+- Do not read, print, copy, summarize, or log secrets.
+- Do not inspect `.env`, `.env.*`, token files, SSH keys, credential stores, browser profiles, or cloud configuration files unless explicitly authorized with an exact path.
 - Do not commit secrets.
-- If credentials are needed, ask the human to perform the sensitive action.
+- If a task appears to require credentials, stop and ask for a safer human handoff.
 
-## Forbidden Commands
+## Git Safety
 
-Do not run destructive or high-risk commands unless a human explicitly names the target and confirms intent:
+- Check `git status --short` before making or reviewing changes.
+- Treat Git as the source of truth for project state.
+- Do not push, merge, rebase, tag, or publish releases unless explicitly instructed.
+- Do not force push.
+- Review diffs before committing.
 
-- `rm -rf`
-- `git reset --hard`
-- `git clean -fd`
-- force pushes
-- recursive permission changes
-- disk formatting, mounting, or partitioning commands
-- commands that print environment secrets
+## Destructive Actions
 
-## Git Policy
+Do not run destructive commands unless a human explicitly authorizes the exact action and target.
 
-- Git status must be checked before commits.
-- Push, merge, rebase, tag, and release operations require explicit human instruction.
-- Force push is forbidden by default.
-- The remote repository must match the intended project before pushing.
+Examples include:
 
-## File Scope Rules
+- `rm`, especially recursive deletion.
+- `git reset --hard`.
+- `git clean`.
+- Recursive permission or ownership changes.
+- Disk formatting, mounting, or partitioning commands.
+- Commands that expose environment variables or credentials.
 
-- Stay inside the authorized repository.
-- Modify only paths named or implied by the task.
-- Do not edit sibling repositories.
-- Do not delete files unless deletion is explicitly requested.
+## Dependency Installation
 
-## Human Execution Rules
+Do not install global dependencies unless the task justifies it and the human explicitly approves. Prefer existing local tools and minimal scripts.
 
-- Humans approve objectives and scope.
-- Agents execute bounded tasks.
-- Humans review diffs before expanding scope.
-- Ambiguous tasks should be clarified or split.
+## Codex Task Boundaries
+
+- Give Codex CLI one bounded task at a time.
+- State authorized scope and out-of-scope paths explicitly.
+- Keep changes small, reviewable, and tied to a written task.
+- Stop if the repository or path does not match the expected scope.
+- Do not expand a task during execution; create a follow-up task instead.

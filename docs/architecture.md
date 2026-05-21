@@ -2,33 +2,48 @@
 
 ## Overview
 
-Orchestia coordinates a human-directed loop across Windows, WSL, a Linux-oriented repository, Codex CLI, Git, ChatGPT Business, and Logics Manager-compatible documentation.
+Orchestia is a local, human-supervised workflow for AI-assisted software development. It connects a Windows host, a WSL 2 Ubuntu workspace, a Git repository, ChatGPT Business, Codex CLI, Logics memory, and local task-run outputs.
 
 ## Components
 
-- Windows host: provides the user workstation, browser, GitHub access, and local storage.
-- WSL: preferred shell environment for Linux-style development commands.
-- Linux repo: the working copy where tasks are executed and reviewed.
-- Codex CLI: bounded executor that makes local changes only when given explicit scope.
-- Git: source of truth for status, diffs, commits, branches, and remote synchronization.
+- Windows host: the user workstation for browser access, GitHub, ChatGPT Business, and local files.
+- WSL 2 Ubuntu workspace: the preferred command environment for repository work.
+- Linux filesystem repository: the working copy should live under the WSL Linux filesystem, not `/mnt/c`, by default.
 - ChatGPT Business: planner, researcher, reviewer, and next-step synthesizer.
-- Logics Manager: structure for requests, backlog, tasks, specs, ADRs, and reviews.
+- Codex CLI: bounded local executor for one explicit task at a time.
+- Git: source of truth for status, diffs, commits, branches, and remote state.
+- Logics folders: Markdown project memory for requests, backlog items, tasks, specs, ADRs, and reviews.
+- `task-runs/`: local runtime output for generated diff snapshots, test results, and task summaries.
+- Prompt templates: reusable operating standards for research, planning, Codex execution, review, and audits.
+- Helper scripts: small Bash scripts for environment checks and collecting review evidence.
+
+## Repository Layout
+
+```text
+docs/       Architecture, security, and workflow documentation.
+prompts/    Copyable prompt templates for the MVP workflow.
+scripts/    Minimal local helper scripts.
+logics/     Versioned project memory.
+task-runs/  Local generated task outputs; contents are ignored by Git except .gitkeep.
+```
 
 ## Data Flow
 
-1. A human writes or approves a request.
-2. ChatGPT Business turns the request into research notes, a plan, and a bounded Codex task.
-3. Codex CLI executes the task locally in the repository.
-4. Git records the diff and commit history.
-5. Scripts collect status, diff, and test output into `task-runs/`.
-6. ChatGPT Business reviews the collected results.
-7. Decisions are reinjected into the next request, backlog item, task, spec, ADR, or review.
+1. A human records or approves a request in `logics/requests/`.
+2. ChatGPT Business researches the request and helps plan a bounded task.
+3. The task is recorded in `logics/tasks/`.
+4. Codex CLI executes the task locally inside the repository.
+5. Git exposes the resulting status and diff.
+6. Helper scripts collect diff and test evidence into `task-runs/`.
+7. ChatGPT Business reviews the evidence and recommends accept, revise, split, or reject.
+8. The decision is recorded in Logics memory and used to choose the next task.
 
-## MVP Limitations
+## Current MVP Limitations
 
-- No autonomous scheduling.
-- No background workers.
-- No cross-repository orchestration.
+- No autonomous scheduler or background worker.
+- No GitHub Actions or deployment pipeline.
 - No secret handling automation.
-- No production deployment pipeline.
-- No GitHub Actions.
+- No cross-repository orchestration.
+- No dependency installation workflow.
+- No guarantee that WSL isolates commands from the host.
+- `task-runs/` output is local and ignored by default unless manually converted into tracked project memory.
