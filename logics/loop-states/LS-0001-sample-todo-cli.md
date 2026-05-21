@@ -13,18 +13,18 @@
 - Current request: [REQ-0003 Sample Todo CLI Core Features](../requests/REQ-0003-sample-todo-cli-core-features.md)
 - Current backlog item: [BL-0005 Sample Todo CLI Core Features](../backlog/BL-0005-sample-todo-cli-core-features.md)
 - Current task: [TASK-0019 Sample Todo CLI Implement Core Features](../tasks/TASK-0019-sample-todo-cli-implement-core-features.md)
-- Prepared Codex prompt: None yet
+- prepared Codex prompt: [todo-cli-task-0019-codex-prompt.md](../../prompts/samples/todo-cli-task-0019-codex-prompt.md)
 - Last Codex run: sample project commit `933cc67 Create todo CLI project foundation`
 - Last review: [REVIEW-0019 Sample Task 0018 Execution](../reviews/REVIEW-0019-sample-task-0018-execution.md)
-- Decision: accept
-- Next action: Prepare or execute the core features task in the dedicated sample workspace.
-- Stop condition: pending for TASK-0019 preparation or execution
+- Decision: pending
+- Next action: Execute the prepared TASK-0019 prompt in Codex from the dedicated sample workspace.
+- Stop condition: Stop if the sample workspace is dirty, the path is unsafe, Codex requests secrets, Codex needs a destructive command, tests fail repeatedly, or the implementation expands beyond core todo features.
 
 ## Decision
 
 Allowed values: accept, revise, split, reject.
 
-- Decision: accept
+- Decision: pending
 
 ## Stop Condition
 
@@ -35,7 +35,7 @@ Allowed values:
 - firm blocker reached
 - human stop requested
 
-- Stop condition: pending for TASK-0019 preparation or execution
+- Stop condition: Stop if the sample workspace is dirty, the path is unsafe, Codex requests secrets, Codex needs a destructive command, tests fail repeatedly, or the implementation expands beyond core todo features.
 
 ## Firm Blocker
 
@@ -45,4 +45,4 @@ Allowed values:
 
 ## Next Action
 
-- Prepare or execute the core features task in the dedicated sample workspace.
+- Execute the prepared TASK-0019 prompt in Codex from the dedicated sample workspace.
