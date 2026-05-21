@@ -127,6 +127,7 @@ WSL is not a strong sandbox. Do not read, print, summarize, or log secrets. Do n
 - [Architecture](docs/architecture.md)
 - [Security Boundaries](docs/security-boundaries.md)
 - [Workflow](docs/workflow.md)
+- [MVP roadmap](docs/mvp-roadmap.md)
 - [Prompt Templates](prompts/)
 - [Logics Requests](logics/requests/)
 - [Logics Backlog](logics/backlog/)
