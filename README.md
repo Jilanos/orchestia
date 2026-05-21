@@ -17,6 +17,12 @@ The MVP foundation is in place:
 
 Orchestia is not an autonomous agent framework. It is a documented, human-supervised workflow.
 
+## Execution Modes
+
+Orchestia policy defines Manual mode, Assisted mode, Auto branch mode, and Controlled auto merge mode. Auto push and auto merge are policy-gated for fresh projects or isolated branches; `main` and `master` stay protected by default.
+
+For v0.2, Orchestia is moving toward iterative need-to-completion orchestration: initial need, primary needs, requests, backlog items, tasks, Codex execution, collected evidence, review, and repeat until complete or blocked. Controlled auto push and controlled auto merge are planned only for fresh projects or isolated branches under explicit guardrails. Orchestia remains human-supervised, not fully autonomous.
+
 ## Repository Structure
 
 ```text

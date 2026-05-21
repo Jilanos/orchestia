@@ -1,5 +1,29 @@
 # Workflow
 
+## v0.2 Iterative Orchestration Loop
+
+v0.2 extends the local workflow into an iterative need-to-completion loop:
+
+Initial user need -> primary needs -> request per primary need -> backlog items -> executable tasks -> Codex prompt generation -> Codex execution -> diff, logs and test collection -> review -> repeat until each primary need is complete or blocked.
+
+The loop continues until the initial need is complete, all remaining work is explicitly out of scope, or a firm blocker prevents safe progress.
+
+## Macro Loop
+
+The macro loop is:
+
+Initial need -> primary needs -> request/backlog/tasks per primary need -> completion review -> next primary need.
+
+Each primary need must have a request, backlog slice, executable tasks, and a completion review before the loop moves on.
+
+## Micro Loop
+
+The micro loop is:
+
+Task -> Codex execution -> collect outputs -> review -> accept, revise, split or reject.
+
+The review decision controls the next step. Accept advances the current need, revise creates a correction task, split creates smaller tasks, and reject returns to planning.
+
 ## 1. Request Creation
 
 Capture the user need in `logics/requests/`. Include the desired outcome, known context, constraints, open questions, and links to related Logics records.
@@ -37,6 +61,19 @@ bash scripts/run_codex_task.sh --execute logics/tasks/TASK-0001-initial-scaffold
 ```
 
 Codex should inspect the repository, make only scoped edits, run the requested checks, and report the result.
+
+## Execution Modes
+
+Orchestia supports four documented execution modes. The mode must be declared by the project or task before execution.
+
+- Manual mode: Codex proposes changes; a human reviews, commits, pushes, and merges.
+- Assisted mode: Codex may prepare changes and commit locally; a human still pushes and merges.
+- Auto branch mode: Codex may create or use an isolated working branch, then commit and push to that branch after checks pass.
+- Controlled auto merge mode: Codex may merge only into an explicitly authorized target branch.
+
+For auto branch mode and controlled auto merge mode, `main` and `master` are protected by default. Pushing directly to `main` or `master`, or merging into `main` or `master`, requires an explicit override; main or master are never implicit automation targets. The target branch must be declared, the working tree must be clean before the task starts, required checks must pass, `git diff --stat` must be reviewed or included in the result, and the automation must produce a review record.
+
+Controlled auto push and controlled auto merge are intended only for fresh projects or isolated branches. They are not full autonomy and must not bypass failed checks, include secrets, merge out-of-scope changes, or modify files outside the repository.
 
 ## 7. Diff Collection
 

@@ -1,67 +1,113 @@
 # MVP Roadmap
 
-## Current MVP State
+## Current State
 
-Orchestia has a usable local foundation for human-supervised AI-assisted software development. The repository supports a WSL-first workflow with documentation, prompt templates, helper scripts, a repository audit script, Logics project memory, and local `task-runs/` output collection.
+Orchestia v0.1 provides the local workflow foundation: WSL-first workspace guidance, helper scripts, repository audit output, prompt templates, Logics templates, a validation checklist, a sample end-to-end run, and a release readiness review.
 
-## Completed Foundation Items
+The next goal is v0.2: iterative need-to-completion orchestration.
 
-- Public GitHub repository.
-- WSL-first workspace guidance.
-- Main documentation for architecture, security, and workflow.
-- Reusable prompts for research, planning, Codex tasks, reviews, and audits.
-- Safe helper scripts for environment checks, Codex command preparation, diff capture, test capture, result summaries, and repository audits.
-- Tracked Logics directories and initial project memory.
-- `.gitignore` policy for generated task-run outputs and local artifacts.
+## v0.2 Goal
 
-## Remaining MVP Milestones
+v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
 
-- Task file schema hardening.
-- Review decision schema.
-- Sample end-to-end task run.
-- Repo audit review loop.
-- Lightweight validation checklist.
-- Optional Logics Manager compatibility check.
-- User documentation cleanup.
-- Release tag for MVP v0.1.
+The system must continue until the initial need is complete, all remaining work is explicitly out of scope, or a firm blocker prevents safe progress.
 
-## Non-Goals
+## Macro Loop
 
-- Full autonomy or background agent execution.
-- Cross-repository orchestration.
+Initial need -> primary needs -> request/backlog/tasks per primary need -> completion review -> next primary need.
+
+The macro loop includes:
+
+- Initial need intake.
+- Primary need decomposition.
+- Request creation per primary need.
+- Backlog item creation.
+- Task generation.
+- Completion review for each primary need.
+- Next primary need selection.
+
+## Micro Loop
+
+Task -> Codex execution -> collect outputs -> review -> accept, revise, split or reject.
+
+The micro loop includes:
+
+- Codex prompt generation.
+- Codex execution.
+- Diff, logs and test collection.
+- Review decision.
+- Follow-up task creation when the decision is revise, split or reject.
+
+## Loop Rules
+
+- One task should remain bounded and reviewable.
+- The review decision must be one of: accept, revise, split or reject.
+- Accepted work can advance the current primary need.
+- Revise means continue with a scoped correction task.
+- Split means create smaller tasks before continuing.
+- Reject means discard the approach and return to planning.
+- The loop stops only when completion criteria are met or a firm blocker is documented.
+
+## Completion Criteria
+
+The initial need is complete only when every primary need is one of:
+
+- Accepted as complete.
+- Explicitly out of scope.
+- Blocked by a documented firm blocker.
+
+## Firm Blocker Criteria
+
+Firm blocker examples include:
+
+- Missing credentials.
+- Unclear product decision.
+- Unsafe command required.
+- Failing external dependency.
+- Insufficient repository context.
+- Repeated Codex failure on the same task.
+- Unavailable test environment.
+
+## Human Control Points
+
+- Approve the initial need and primary needs.
+- Approve scope for each request, backlog item, and task.
+- Approve execution mode before Codex runs.
+- Review diffs, logs, tests, and review records.
+- Decide whether work is complete, out of scope, blocked, or safe to continue.
+- Explicitly authorize any tag, push to protected branch, or merge into protected branch.
+
+## Execution Modes
+
+- Manual mode: Codex proposes changes; human reviews, commits, pushes and merges.
+- Assisted mode: Codex may prepare changes and commit locally; human still pushes and merges.
+- Auto branch mode: Codex may create or use an isolated working branch, then commit and push to that branch after checks pass.
+- Controlled auto merge mode: Codex may merge only into an explicitly authorized target branch.
+
+## Controlled Auto Push And Merge
+
+For v0.2, Orchestia may support controlled auto branch execution, controlled auto push, and controlled auto merge only for fresh projects or isolated branches and only behind explicit policy checks.
+
+`main` and `master` remain protected by default. Auto push directly to main or master, or auto merge into main or master, requires an explicit override.
+
+## Non-Goals For v0.2
+
+- Full autonomy.
+- Background agents or daemons.
 - Secret management automation.
-- GitHub Actions or deployment automation.
-- Global dependency installation.
-- Broad framework or service integration.
+- Unrestricted push or merge.
+- Force push.
+- Cross-repository orchestration.
+- Modifying personal Windows files.
+- Bypassing failed checks.
 
-full autonomy is explicitly out of scope for the MVP. The project should keep humans responsible for approving scope, reviewing diffs, and choosing the next task.
+## v0.2 Candidate Tasks
 
-## Risk Register
-
-- Scope drift: tasks may grow beyond one bounded Codex execution. Mitigation: split work before execution.
-- Weak schemas: Logics files may vary too much to review consistently. Mitigation: harden task and review templates.
-- Unproven loop: the workflow needs at least one complete sample run. Mitigation: execute and review a small documentation-only task.
-- Local output loss: `task-runs/` is ignored by Git. Mitigation: summarize important evidence into tracked Logics reviews.
-- Safety erosion: convenience automation could weaken human control. Mitigation: keep scripts local, transparent, and non-destructive.
-
-## Proposed Next Tasks
-
-1. Define a concise task file schema and checklist for `logics/tasks/`.
-2. Define a review decision schema for accept, revise, split, and reject.
-3. Run one sample end-to-end task and record the result in Logics memory.
-4. Use `scripts/audit_repo.sh` and review the generated audit with `prompts/repo_audit_prompt.md`.
-5. Apply the lightweight MVP validation checklist.
-6. Check optional Logics Manager compatibility for folder names and document conventions.
-7. Clean up user-facing documentation after the sample run.
-8. Prepare an MVP v0.1 release tag task, without tagging until explicitly authorized.
-
-## MVP Completion Criteria
-
-- A user can start from the README and understand the WSL-first workflow.
-- A request can be researched, planned, executed as a bounded Codex task, reviewed, and reinjected into the next task.
-- Task and review documents follow stable schemas.
-- Helper scripts collect local evidence without destructive actions.
-- Repository audit output can be reviewed and summarized into Logics memory.
-- Security boundaries remain visible and unchanged.
-- The [validation checklist](validation-checklist.md) is green.
-- Remaining MVP risks are documented or accepted before an MVP v0.1 tag is created.
+1. Add execution mode fields to Logics task templates.
+2. Update prompts to generate primary needs, requests, backlog items, and executable tasks.
+3. Add review schema fields for primary need completion and blockers.
+4. Define a manual primary-need decomposition example.
+5. Implement guarded auto branch checks.
+6. Implement guarded auto push for isolated branches.
+7. Implement controlled auto merge checks.
+8. Update validation checklist for v0.2 execution modes.
