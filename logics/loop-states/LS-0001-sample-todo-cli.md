@@ -13,18 +13,18 @@
 - Current request: [REQ-0004 Sample Todo CLI Validation Docs](../requests/REQ-0004-sample-todo-cli-validation-docs.md)
 - Current backlog item: [BL-0006 Sample Todo CLI Validation Docs](../backlog/BL-0006-sample-todo-cli-validation-docs.md)
 - Current task: [TASK-0020 Sample Todo CLI Add Validation And Docs](../tasks/TASK-0020-sample-todo-cli-add-validation-and-docs.md)
-- Prepared Codex prompt: None yet
+- prepared Codex prompt: [todo-cli-task-0020-codex-prompt.md](../../prompts/samples/todo-cli-task-0020-codex-prompt.md)
 - Last Codex run: sample project commit `1788bae Implement core todo CLI features`
 - Last review: [REVIEW-0021 Sample Task 0019 Execution](../reviews/REVIEW-0021-sample-task-0019-execution.md)
-- Decision: accept
-- Next action: Prepare or execute the validation and docs task in the dedicated sample workspace.
-- Stop condition: pending for TASK-0020 preparation or execution
+- Decision: pending
+- Next action: Execute the prepared TASK-0020 prompt in Codex from the dedicated sample workspace.
+- Stop condition: Stop if the sample workspace is dirty, the path is unsafe, Codex requests secrets, Codex needs a destructive command, tests fail repeatedly, or implementation expands beyond validation and documentation.
 
 ## Decision
 
 Allowed values: accept, revise, split, reject.
 
-- Decision: accept
+- Decision: pending
 
 ## Stop Condition
 
@@ -35,7 +35,7 @@ Allowed values:
 - firm blocker reached
 - human stop requested
 
-- Stop condition: pending for TASK-0020 preparation or execution
+- Stop condition: Stop if the sample workspace is dirty, the path is unsafe, Codex requests secrets, Codex needs a destructive command, tests fail repeatedly, or implementation expands beyond validation and documentation.
 
 ## Firm Blocker
 
@@ -45,4 +45,4 @@ Allowed values:
 
 ## Next Action
 
-- Prepare or execute the validation and docs task in the dedicated sample workspace.
+- Execute the prepared TASK-0020 prompt in Codex from the dedicated sample workspace.
