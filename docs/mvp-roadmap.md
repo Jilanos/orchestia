@@ -50,7 +50,7 @@ full autonomy is explicitly out of scope for the MVP. The project should keep hu
 2. Define a review decision schema for accept, revise, split, and reject.
 3. Run one sample end-to-end task and record the result in Logics memory.
 4. Use `scripts/audit_repo.sh` and review the generated audit with `prompts/repo_audit_prompt.md`.
-5. Add a lightweight MVP validation checklist.
+5. Apply the lightweight MVP validation checklist.
 6. Check optional Logics Manager compatibility for folder names and document conventions.
 7. Clean up user-facing documentation after the sample run.
 8. Prepare an MVP v0.1 release tag task, without tagging until explicitly authorized.
@@ -63,4 +63,5 @@ full autonomy is explicitly out of scope for the MVP. The project should keep hu
 - Helper scripts collect local evidence without destructive actions.
 - Repository audit output can be reviewed and summarized into Logics memory.
 - Security boundaries remain visible and unchanged.
+- The [validation checklist](validation-checklist.md) is green.
 - Remaining MVP risks are documented or accepted before an MVP v0.1 tag is created.
