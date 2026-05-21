@@ -10,13 +10,13 @@
 ## Loop State
 
 - Current primary need: [PN-0001 Project Foundation](../primary-needs/PN-0001-project-foundation.md)
-- Current request: `logics/requests/REQ-TODO-0001-project-foundation.md` (planned)
-- Current backlog item: `logics/backlog/BL-TODO-0001-project-foundation.md` (planned)
-- Current task: `logics/tasks/TASK-TODO-0001-create-foundation.md` (planned)
+- Current request: [REQ-0002 Sample Todo CLI Foundation](../requests/REQ-0002-sample-todo-cli-foundation.md)
+- Current backlog item: [BL-0004 Sample Todo CLI Foundation](../backlog/BL-0004-sample-todo-cli-foundation.md)
+- Current task: [TASK-0018 Sample Todo CLI Create Project Foundation](../tasks/TASK-0018-sample-todo-cli-create-project-foundation.md)
 - Last Codex run: None
 - Last review: None
 - Decision: pending
-- Next action: Create the planned request, backlog item, and first task for PN-0001.
+- Next action: Run the planned foundation task only in a dedicated sample project workspace.
 - Stop condition: pending
 
 ## Decision
@@ -44,4 +44,4 @@ Allowed values:
 
 ## Next Action
 
-- Create the planned request, backlog item, and first bounded task for PN-0001.
+- Run the planned foundation task only in a dedicated sample project workspace.
