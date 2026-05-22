@@ -24,6 +24,8 @@ Git-flow review draft support has been introduced in `scripts/orchestia_loop.sh`
 
 Human-approved review finalization support has been introduced in `scripts/orchestia_loop.sh`. The runner can convert a draft under `task-runs/` into a versioned Logics review only when an explicit review ID, reviewed task, title, and decision are provided.
 
+The first local cockpit has been introduced as `scripts/orchestia_ui.py`. It provides a read-only HTML view of Loop state, `task-runs/`, Logics records, reviews, and debug status on `127.0.0.1`.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

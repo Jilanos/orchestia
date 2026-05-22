@@ -153,6 +153,14 @@ bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example/review-
 
 `finalize-review` requires an explicit decision and writes only to `logics/reviews/`. It does not update Loop state, push, or merge.
 
+Start the local cockpit:
+
+```bash
+python3 scripts/orchestia_ui.py
+```
+
+Open `http://127.0.0.1:8765` to inspect Loop state, task-runs, Logics records, reviews, and debug status. The local cockpit is read-only.
+
 Inspect or dry-run controlled Git flow automation:
 
 ```bash
@@ -185,6 +193,7 @@ WSL is not a strong sandbox. Do not read, print, summarize, or log secrets. Do n
 - [Architecture](docs/architecture.md)
 - [Security Boundaries](docs/security-boundaries.md)
 - [Workflow](docs/workflow.md)
+- [Local cockpit](docs/local-cockpit.md)
 - [Orchestration State Model](docs/orchestration-state-model.md)
 - [MVP roadmap](docs/mvp-roadmap.md)
 - [Sample v0.2 orchestration scenario](docs/sample-v0.2-orchestration-scenario.md)

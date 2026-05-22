@@ -64,6 +64,16 @@ bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example/review-
 
 Review drafts are local and ignored under `task-runs/`. `finalize-review` requires the decision to be provided explicitly, writes the final record under `logics/reviews/`, and does not update Loop state, push, or merge.
 
+## Local Cockpit
+
+The local cockpit is `scripts/orchestia_ui.py`, a read-only HTML interface for inspecting repository state, Loop state, `task-runs/`, Logics records, reviews, and debug status:
+
+```bash
+python3 scripts/orchestia_ui.py
+```
+
+Open `http://127.0.0.1:8765`. In this version the cockpit does not execute Codex, push, merge, update Loop state, create reviews, or write to Logics. Execution remains through the CLI scripts.
+
 ## Controlled Git Flow
 
 After a task is reviewed and checks pass, `scripts/controlled_git_flow.sh` can inspect a workspace, dry-run a controlled auto push from an isolated branch, or dry-run a controlled auto merge into an explicitly declared target branch:
