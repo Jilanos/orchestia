@@ -2,17 +2,17 @@
 
 ## Purpose
 
-Document the attempted validation of `scripts/controlled_git_flow.sh` against a dedicated sample GitHub repository.
+Document validation of `scripts/controlled_git_flow.sh` against a dedicated sample GitHub repository after manual remote setup.
 
 ## Scope
 
-The intended validation target was the sample todo CLI repository at:
+The validation target was the sample todo CLI repository at:
 
 ```text
 ~/ai-workspaces/orchestia-samples/todo-cli
 ```
 
-The intended GitHub repository was:
+The dedicated sample GitHub repository was:
 
 ```text
 https://github.com/Jilanos/orchestia-sample-todo-cli
@@ -20,102 +20,139 @@ https://github.com/Jilanos/orchestia-sample-todo-cli
 
 The Orchestia repository was not used as the controlled Git flow target.
 
-## Pre-Flight Result
+## Manual GitHub Setup Note
 
-Passed:
+Repository creation and remote setup were handled manually from the WSL shell because Codex could not reliably access the GitHub API through `gh` in this environment.
 
-- Orchestia repository path verified.
-- Orchestia branch is `master`.
-- Orchestia working tree was clean.
-- Sample todo CLI workspace exists.
-- Sample todo CLI workspace is not under `/mnt/c`.
-- Sample todo CLI working tree was clean.
-- `scripts/controlled_git_flow.sh` exists and is executable.
-- GitHub CLI is installed.
+For this validation, Codex did not use `gh`, did not create a repository, and did not modify the Orchestia remote.
 
-Blocked:
+## Branches
 
-- `gh auth status` reported the active `Jilanos` account token as invalid.
-- The task instructions required stopping if `gh` was unavailable or not authenticated.
+- Baseline branch: `master`
+- Target branch: `integration`
+- Isolated feature branch: `feature/controlled-git-flow-validation`
+- Feature validation commit: `fe4a51c Validate controlled git flow`
+- Integration merge commit: `f7a0574 Merge branch 'feature/controlled-git-flow-validation' into integration`
 
-Observed CLI output:
-
-```text
-github.com
-  X Failed to log in to github.com account Jilanos (/home/pmondou/.config/gh/hosts.yml)
-  - Active account: true
-  - The token in /home/pmondou/.config/gh/hosts.yml is invalid.
-  - To re-authenticate, run: gh auth login -h github.com
-  - To forget about this account, run: gh auth logout -h github.com -u Jilanos
-```
+`main` and `master` were not targeted by controlled auto-merge.
 
 ## Commands Run
 
+From the sample repository:
+
 ```bash
-pwd
-git branch --show-current
-git status --short
-test -x scripts/controlled_git_flow.sh
-cd ~/ai-workspaces/orchestia-samples/todo-cli
 git status --short
 git branch --show-current
-git log --oneline --decorate --max-count=5
 git remote -v
-cd ~/ai-workspaces/orchestia
-gh --version
-gh auth status
+git add README.md
+git commit -m "Validate controlled git flow"
+```
+
+From the Orchestia repository:
+
+```bash
+bash scripts/controlled_git_flow.sh status \
+  --workspace ~/ai-workspaces/orchestia-samples/todo-cli
+
+bash scripts/controlled_git_flow.sh auto-push \
+  --workspace ~/ai-workspaces/orchestia-samples/todo-cli \
+  --remote origin \
+  --branch feature/controlled-git-flow-validation \
+  --test "python3 -m unittest discover -s tests"
+
+bash scripts/controlled_git_flow.sh auto-push \
+  --workspace ~/ai-workspaces/orchestia-samples/todo-cli \
+  --remote origin \
+  --branch feature/controlled-git-flow-validation \
+  --test "python3 -m unittest discover -s tests" \
+  --execute
+
+bash scripts/controlled_git_flow.sh auto-merge \
+  --workspace ~/ai-workspaces/orchestia-samples/todo-cli \
+  --remote origin \
+  --source-branch feature/controlled-git-flow-validation \
+  --target-branch integration \
+  --test "python3 -m unittest discover -s tests"
+
+bash scripts/controlled_git_flow.sh auto-merge \
+  --workspace ~/ai-workspaces/orchestia-samples/todo-cli \
+  --remote origin \
+  --source-branch feature/controlled-git-flow-validation \
+  --target-branch integration \
+  --test "python3 -m unittest discover -s tests" \
+  --execute
 ```
 
 ## Results
 
-- Dedicated GitHub sample repository creation was not attempted.
-- Sample `origin` remote was not configured.
-- No controlled auto-push dry-run was run against a real remote.
-- No controlled auto-push execute run occurred.
-- No controlled auto-merge dry-run was run against a real remote.
-- No controlled auto-merge execute run occurred.
-- No push was performed.
-- No merge was performed.
-- No sample project files were modified.
-- No Orchestia files were modified during the failed validation attempts before this documentation task.
+- `status` completed in dry-run mode.
+- `auto-push` dry-run completed and printed the intended push command.
+- `auto-push --execute` pushed `feature/controlled-git-flow-validation` to `origin`.
+- `auto-merge` dry-run completed and printed the intended checkout, merge, and push commands.
+- `auto-merge --execute` merged `feature/controlled-git-flow-validation` into `integration` using `--no-ff`.
+- `auto-merge --execute` pushed `integration` to `origin`.
+- The test command `python3 -m unittest discover -s tests` passed before controlled push and controlled merge.
+- The test command passed again after the merge before pushing `integration`.
+- No force push was used.
+- No branch deletion was used.
+- No rebase or tag was used.
+- No merge into `main` or `master` occurred.
 
 ## Evidence Directories
 
-No controlled Git flow evidence directory was created for the intended remote validation, because validation stopped at GitHub CLI authentication before invoking `scripts/controlled_git_flow.sh` against a configured remote.
+- `task-runs/20260522T074301Z-controlled-git-flow-2/`
+- `task-runs/20260522T074306Z-controlled-git-flow-2/`
+- `task-runs/20260522T074324Z-controlled-git-flow-71994/`
+- `task-runs/20260522T074332Z-controlled-git-flow-72059/`
+- `task-runs/20260522T074336Z-controlled-git-flow-72101/`
+
+An earlier execute attempt failed in the sandbox before the escalated network run:
+
+- `task-runs/20260522T074310Z-controlled-git-flow-2/`
+
+That failed attempt did not push anything because the sandbox could not resolve `github.com`.
 
 ## Safety Guardrails Observed
 
-- The Orchestia repository was not used as the sample target.
-- The sample project remained clean.
-- No remote was changed while authentication was invalid.
-- No push, merge, rebase, tag, force push, or branch deletion was performed.
-- No files under `/mnt/c` were modified.
-- No secrets were read or printed.
+- The sample repository was used as the target, not Orchestia.
+- The workspace was outside `/mnt/c`.
+- The feature branch was isolated.
+- The target branch was `integration`, not `main` or `master`.
+- The script defaulted to dry-run.
+- `--execute` was required before push or merge.
+- Tests passed before each execute action.
+- The sample project was clean before controlled push and controlled merge.
+- Evidence reports were written under Orchestia `task-runs/`.
 
 ## What Passed
 
-- Local repository pre-flight checks.
-- Sample workspace pre-flight checks.
-- GitHub CLI availability check.
+- Dedicated sample remote validation.
+- Controlled auto-push dry-run.
+- Controlled auto-push execute.
+- Controlled auto-merge dry-run.
+- Controlled auto-merge execute.
+- Evidence report creation.
+- Final sample repository clean status.
 
 ## What Failed Or Was Not Tested
 
 Failed:
 
-- GitHub CLI authenticated status.
+- The first sandboxed `auto-push --execute` attempt could not resolve `github.com`. The same script command succeeded after running with network access.
 
 Not tested:
 
-- Creation or verification of `orchestia-sample-todo-cli`.
-- Controlled auto-push dry-run and execute.
-- Controlled auto-merge dry-run and execute.
-- Evidence report generation for a successful controlled Git flow run.
+- Merge into protected `main` or `master`.
+- Protected branch override flags.
+- Failed-test blocking behavior during execute mode.
 
 ## Remaining Risks
 
-- The local WSL GitHub CLI state appears inconsistent from the user perspective: the user reports authentication looked valid after multiple login/logout and verification attempts, while `gh auth status` still reports an invalid token for the active account.
-- Controlled Git flow execute paths remain unvalidated against a real remote.
+- The validation covered one happy path on a small sample repository.
+- Protected branch override behavior still needs a separate negative test.
+- Failed-test blocking should be validated with an intentional failing command in a disposable branch.
+- GitHub CLI repository creation remains outside Codex in this environment.
 
 ## Next Recommended Step
 
-Resolve the local GitHub CLI authentication inconsistency, then rerun the validation task against the dedicated `orchestia-sample-todo-cli` repository.
+Add focused negative-path validation for controlled Git flow guardrails, including protected target refusal and failed-test refusal.
