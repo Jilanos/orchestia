@@ -145,6 +145,14 @@ bash scripts/orchestia_loop.sh git-flow-review-draft logics/loop-states/LS-0001-
 
 The draft is written under `task-runs/`; final Logics reviews and Loop state updates remain human-controlled.
 
+Finalize a human-approved review draft into Logics memory:
+
+```bash
+bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example/review-draft.md --review-id REVIEW-0031 --review-title "Example review" --reviewed-task TASK-0031 --decision accept
+```
+
+`finalize-review` requires an explicit decision and writes only to `logics/reviews/`. It does not update Loop state, push, or merge.
+
 Inspect or dry-run controlled Git flow automation:
 
 ```bash

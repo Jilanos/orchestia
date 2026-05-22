@@ -11,6 +11,7 @@ usage:
   scripts/orchestia_loop.sh review-draft <loop-state> --workspace <path>
   scripts/orchestia_loop.sh git-flow <loop-state> --workspace <path> --remote <name> --source-branch <branch> --target-branch <branch> [--test "<command>"] [--allow-protected-branch] [--allow-protected-target]
   scripts/orchestia_loop.sh git-flow-review-draft <loop-state> --workspace <path> [--evidence-dir task-runs/<dir>] [--decision accept|revise|split|reject]
+  scripts/orchestia_loop.sh finalize-review --draft task-runs/<dir>/<draft.md> --review-id REVIEW-XXXX --review-title "<title>" --reviewed-task TASK-XXXX --decision accept|revise|split|reject
 EOF
 }
 
@@ -266,6 +267,76 @@ parse_git_flow_review_args() {
       *) fail "--evidence-dir must be under task-runs/" ;;
     esac
   fi
+}
+
+parse_finalize_review_args() {
+  draft_path=""
+  review_id=""
+  review_title=""
+  reviewed_task=""
+  review_decision=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --draft)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --draft"
+        draft_path="$1"
+        ;;
+      --review-id)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --review-id"
+        review_id="$1"
+        ;;
+      --review-title)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --review-title"
+        review_title="$1"
+        ;;
+      --reviewed-task)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --reviewed-task"
+        reviewed_task="$1"
+        ;;
+      --decision)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --decision"
+        review_decision="$1"
+        case "$review_decision" in
+          accept|revise|split|reject) ;;
+          *) fail "--decision must be one of: accept, revise, split, reject" ;;
+        esac
+        ;;
+      *)
+        fail "unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [ -n "$draft_path" ] || fail "missing --draft"
+  [ -n "$review_id" ] || fail "missing --review-id"
+  [ -n "$review_title" ] || fail "missing --review-title"
+  [ -n "$reviewed_task" ] || fail "missing --reviewed-task"
+  [ -n "$review_decision" ] || fail "missing --decision"
+
+  case "$draft_path" in
+    task-runs/*) ;;
+    *) fail "--draft must be under task-runs/" ;;
+  esac
+  case "$draft_path" in
+    *..*) fail "--draft must not contain '..'" ;;
+  esac
+  [ -f "$draft_path" ] || fail "draft not found: $draft_path"
+
+  case "$review_id" in
+    REVIEW-*) ;;
+    *) fail "--review-id must start with REVIEW-" ;;
+  esac
+  case "$reviewed_task" in
+    TASK-*) ;;
+    *) fail "--reviewed-task must start with TASK-" ;;
+  esac
 }
 
 is_protected_branch() {
@@ -633,6 +704,103 @@ write_evidence_excerpt() {
   esac
 }
 
+slugify() {
+  printf '%s\n' "$1" |
+    tr '[:upper:]' '[:lower:]' |
+    sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//'
+}
+
+draft_section() {
+  draft="$1"
+  section="$2"
+  awk -v wanted="$(printf '%s\n' "$section" | tr '[:upper:]' '[:lower:]')" '
+    function lower(s) { return tolower(s) }
+    /^##[[:space:]]+/ {
+      heading = $0
+      sub(/^##[[:space:]]+/, "", heading)
+      in_section = (lower(heading) == wanted)
+      next
+    }
+    /^#[[:space:]]+/ {
+      if (in_section) {
+        in_section = 0
+      }
+    }
+    in_section {
+      print
+      found = 1
+    }
+    END {
+      if (!found) {
+        print "Not specified in source draft."
+      }
+    }
+  ' "$draft"
+}
+
+command_finalize_review() {
+  parse_finalize_review_args "$@"
+  mkdir -p logics/reviews
+
+  title_slug="$(slugify "$review_title")"
+  if [ -n "$title_slug" ]; then
+    review_file="logics/reviews/${review_id}-${title_slug}.md"
+  else
+    review_file="logics/reviews/${review_id}.md"
+  fi
+  [ ! -e "$review_file" ] || fail "review file already exists: $review_file"
+
+  finalized_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  {
+    echo "# ${review_id}: ${review_title}"
+    echo
+    echo "## Metadata"
+    echo
+    echo "- Review ID: $review_id"
+    echo "- Title: $review_title"
+    echo "- Reviewed task: $reviewed_task"
+    echo "- Decision: $review_decision"
+    echo "- Source draft: $draft_path"
+    echo "- Finalized timestamp: $finalized_at"
+    echo
+    echo "## Inputs Reviewed"
+    echo
+    draft_section "$draft_path" "Inputs reviewed"
+    echo
+    echo "## Checks Performed"
+    echo
+    draft_section "$draft_path" "Checks performed"
+    echo
+    echo "## Findings"
+    echo
+    draft_section "$draft_path" "Findings"
+    echo
+    echo "## Risks"
+    echo
+    draft_section "$draft_path" "Risks"
+    echo
+    echo "## Decision"
+    echo
+    echo "$review_decision"
+    echo
+    echo "## Required Follow-Up"
+    echo
+    draft_section "$draft_path" "Required follow-up"
+    echo
+    echo "## Next Recommended Task"
+    echo
+    draft_section "$draft_path" "Next recommended task"
+    echo
+    echo "## Finalization Note"
+    echo
+    echo "This final review was created from a local draft. The decision was provided explicitly by the human or calling command. Loop state was not updated by this command."
+  } > "$review_file"
+
+  echo "Final review created: $review_file"
+  echo "Loop state was not updated. No push or merge was performed."
+}
+
 command_git_flow_review_draft() {
   loop_file="$1"
   shift
@@ -761,6 +929,12 @@ main() {
   }
 
   command_name="$1"
+  if [ "$command_name" = "finalize-review" ]; then
+    shift
+    command_finalize_review "$@"
+    exit 0
+  fi
+
   loop_file="$2"
   shift 2
   require_loop_state "$loop_file"

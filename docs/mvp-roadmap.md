@@ -22,6 +22,8 @@ Controlled Git flow handoff has been introduced in `scripts/orchestia_loop.sh`. 
 
 Git-flow review draft support has been introduced in `scripts/orchestia_loop.sh`. The runner can now turn controlled Git-flow evidence into a draft review under `task-runs/` while leaving final decisions and Loop state updates human-owned.
 
+Human-approved review finalization support has been introduced in `scripts/orchestia_loop.sh`. The runner can convert a draft under `task-runs/` into a versioned Logics review only when an explicit review ID, reviewed task, title, and decision are provided.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

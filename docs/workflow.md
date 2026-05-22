@@ -56,6 +56,14 @@ bash scripts/orchestia_loop.sh git-flow-review-draft logics/loop-states/LS-0001-
 
 The draft lives under `task-runs/`. Final review creation, decisions, and Loop state advancement remain human-controlled and separate from the runner.
 
+When a human has reviewed a draft and chosen a decision, `finalize-review` can convert that ignored draft into a versioned Logics review:
+
+```bash
+bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example/review-draft.md --review-id REVIEW-0031 --review-title "Example review" --reviewed-task TASK-0031 --decision accept
+```
+
+Review drafts are local and ignored under `task-runs/`. `finalize-review` requires the decision to be provided explicitly, writes the final record under `logics/reviews/`, and does not update Loop state, push, or merge.
+
 ## Controlled Git Flow
 
 After a task is reviewed and checks pass, `scripts/controlled_git_flow.sh` can inspect a workspace, dry-run a controlled auto push from an isolated branch, or dry-run a controlled auto merge into an explicitly declared target branch:
