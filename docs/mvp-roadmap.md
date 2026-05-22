@@ -16,6 +16,8 @@ The first state-driven loop runner has been introduced as `scripts/orchestia_loo
 
 The first controlled Git flow automation has been introduced as `scripts/controlled_git_flow.sh`. It supports dry-run-first status, guarded auto-push, and guarded auto-merge commands for isolated branches under the documented policy.
 
+Controlled Git flow validation against a dedicated sample GitHub repository is currently blocked because `gh auth status` reports an invalid token for the active account, despite local authentication appearing valid to the user.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
@@ -117,7 +119,7 @@ For v0.2, Orchestia may support controlled auto branch execution, controlled aut
 2. Add execution mode fields to Logics task templates.
 3. Add review schema fields for primary need completion and blockers.
 4. Define a manual primary-need decomposition example against a real project.
-5. Exercise controlled Git flow against a disposable repository with remotes.
+5. Resolve the GitHub CLI authentication inconsistency and rerun controlled Git flow validation against a disposable repository with remotes.
 6. Add execution mode fields to task templates.
 7. Add review evidence fields for controlled push and merge.
 8. Update validation checklist for v0.2 execution modes.
