@@ -14,6 +14,8 @@ A sample v0.2 scenario is documented in [Sample v0.2 Orchestration Scenario](sam
 
 The first state-driven loop runner has been introduced as `scripts/orchestia_loop.sh`. It reads Loop state, helps identify or run the next prepared prompt, collects evidence, and drafts reviews while keeping state updates and decisions human-supervised.
 
+The first controlled Git flow automation has been introduced as `scripts/controlled_git_flow.sh`. It supports dry-run-first status, guarded auto-push, and guarded auto-merge commands for isolated branches under the documented policy.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
@@ -115,7 +117,7 @@ For v0.2, Orchestia may support controlled auto branch execution, controlled aut
 2. Add execution mode fields to Logics task templates.
 3. Add review schema fields for primary need completion and blockers.
 4. Define a manual primary-need decomposition example against a real project.
-5. Implement guarded auto branch checks.
-6. Implement guarded auto push for isolated branches.
-7. Implement controlled auto merge checks.
+5. Exercise controlled Git flow against a disposable repository with remotes.
+6. Add execution mode fields to task templates.
+7. Add review evidence fields for controlled push and merge.
 8. Update validation checklist for v0.2 execution modes.

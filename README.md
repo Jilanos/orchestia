@@ -129,6 +129,16 @@ bash scripts/orchestia_loop.sh next logics/loop-states/LS-0001-sample-todo-cli.m
 
 The state-driven runner can print a Codex command, collect workspace evidence, and create a review draft. It does not update Loop state, push, merge, or make review decisions.
 
+Inspect or dry-run controlled Git flow automation:
+
+```bash
+bash scripts/controlled_git_flow.sh status --workspace ~/ai-workspaces/example-project
+bash scripts/controlled_git_flow.sh auto-push --workspace ~/ai-workspaces/example-project --remote origin --branch feature/example
+bash scripts/controlled_git_flow.sh auto-merge --workspace ~/ai-workspaces/example-project --remote origin --source-branch feature/example --target-branch integration
+```
+
+`scripts/controlled_git_flow.sh` defaults to dry-run. Auto-push and auto-merge require `--execute`; `main/master` are protected by default, force push is forbidden, and failed tests block execution.
+
 The audit script writes `repo-audit.md` under a timestamped `task-runs/` directory. Paste that report into ChatGPT Business with `prompts/repo_audit_prompt.md` when you want a repository-level review.
 
 ## MVP Workflow

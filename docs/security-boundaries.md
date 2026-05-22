@@ -80,6 +80,20 @@ Auto push and auto merge are allowed only when all conditions are true:
 - Auto merge into main or master requires explicit override.
 - The merge must stop if required checks fail, secrets appear in the diff, or out-of-scope files changed.
 
+## Controlled Git Flow Script
+
+`scripts/controlled_git_flow.sh` implements the first guarded automation for controlled auto push and controlled auto merge.
+
+- The script defaults to dry-run.
+- `--execute` is required before any push or merge is performed.
+- `main/master` remain protected by default.
+- Auto-push from `main/master` requires `--allow-protected-branch`.
+- Auto-merge into `main/master` requires `--allow-protected-target`.
+- Force push remains forbidden.
+- Branch deletion remains forbidden.
+- Failed tests block execution.
+- Each invocation writes a timestamped evidence report under `task-runs/`.
+
 ## Forbidden By Default
 
 - Force push.

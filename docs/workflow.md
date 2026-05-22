@@ -40,6 +40,18 @@ bash scripts/orchestia_loop.sh review-draft logics/loop-states/LS-0001-sample-to
 
 The runner keeps decisions human-supervised. It does not update Loop state, create accept/revise/split/reject decisions, push, merge, rebase, tag, or force push.
 
+## Controlled Git Flow
+
+After a task is reviewed and checks pass, `scripts/controlled_git_flow.sh` can inspect a workspace, dry-run a controlled auto push from an isolated branch, or dry-run a controlled auto merge into an explicitly declared target branch:
+
+```bash
+bash scripts/controlled_git_flow.sh status --workspace ~/ai-workspaces/example-project
+bash scripts/controlled_git_flow.sh auto-push --workspace ~/ai-workspaces/example-project --remote origin --branch feature/example
+bash scripts/controlled_git_flow.sh auto-merge --workspace ~/ai-workspaces/example-project --remote origin --source-branch feature/example --target-branch integration
+```
+
+The script defaults to dry-run and writes evidence under `task-runs/`. It performs push or merge only with `--execute`, never uses force push, never deletes branches, and keeps `main` and `master` protected unless an explicit override flag is provided. Failed tests block execution.
+
 ## 1. Request Creation
 
 Capture the user need in `logics/requests/`. Include the desired outcome, known context, constraints, open questions, and links to related Logics records.
