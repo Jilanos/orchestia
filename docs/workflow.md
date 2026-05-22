@@ -40,6 +40,14 @@ bash scripts/orchestia_loop.sh review-draft logics/loop-states/LS-0001-sample-to
 
 The runner keeps decisions human-supervised. It does not update Loop state, create accept/revise/split/reject decisions, push, merge, rebase, tag, or force push.
 
+The runner can also prepare a controlled Git flow handoff:
+
+```bash
+bash scripts/orchestia_loop.sh git-flow logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/orchestia-samples/todo-cli --remote origin --source-branch feature/example --target-branch integration --test "python3 -m unittest discover -s tests"
+```
+
+`orchestia_loop.sh` remains the state-driven runner, while `controlled_git_flow.sh` remains the Git automation runner. The `git-flow` handoff only generates safe commands and evidence; push and merge still require explicit human-approved execution through `controlled_git_flow.sh --execute`.
+
 ## Controlled Git Flow
 
 After a task is reviewed and checks pass, `scripts/controlled_git_flow.sh` can inspect a workspace, dry-run a controlled auto push from an isolated branch, or dry-run a controlled auto merge into an explicitly declared target branch:

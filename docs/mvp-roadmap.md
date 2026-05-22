@@ -18,6 +18,8 @@ The first controlled Git flow automation has been introduced as `scripts/control
 
 Controlled Git flow validation has passed against a dedicated sample GitHub repository after manual remote setup. The validation covered dry-run and execute paths for pushing an isolated feature branch and merging it into `integration`.
 
+Controlled Git flow handoff has been introduced in `scripts/orchestia_loop.sh`. The state-driven runner can now generate copyable `controlled_git_flow.sh` commands and a handoff report without executing push or merge.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

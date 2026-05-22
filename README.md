@@ -129,6 +129,14 @@ bash scripts/orchestia_loop.sh next logics/loop-states/LS-0001-sample-todo-cli.m
 
 The state-driven runner can print a Codex command, collect workspace evidence, and create a review draft. It does not update Loop state, push, merge, or make review decisions.
 
+Generate a controlled Git flow handoff from Loop state to copyable Git commands:
+
+```bash
+bash scripts/orchestia_loop.sh git-flow logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --remote origin --source-branch feature/example --target-branch integration --test "python3 -m unittest discover -s tests"
+```
+
+The handoff creates evidence under `task-runs/` and prints `controlled_git_flow.sh` status, dry-run, and human-approved execute commands. It does not push or merge.
+
 Inspect or dry-run controlled Git flow automation:
 
 ```bash

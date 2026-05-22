@@ -156,3 +156,7 @@ Not tested:
 ## Next Recommended Step
 
 Add focused negative-path validation for controlled Git flow guardrails, including protected target refusal and failed-test refusal.
+
+## Follow-Up Handoff Note
+
+`scripts/orchestia_loop.sh` now provides a `git-flow` handoff that reads Loop state and prints copyable `scripts/controlled_git_flow.sh` commands. The handoff creates evidence but does not execute push or merge; execute commands remain human-approved only.

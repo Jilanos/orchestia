@@ -9,6 +9,7 @@ usage:
   scripts/orchestia_loop.sh run <loop-state> --workspace <path> [--execute]
   scripts/orchestia_loop.sh collect <loop-state> --workspace <path> [--test "<command>"]
   scripts/orchestia_loop.sh review-draft <loop-state> --workspace <path>
+  scripts/orchestia_loop.sh git-flow <loop-state> --workspace <path> --remote <name> --source-branch <branch> --target-branch <branch> [--test "<command>"] [--allow-protected-branch] [--allow-protected-target]
 EOF
 }
 
@@ -168,6 +169,89 @@ parse_workspace_args() {
     esac
     shift
   done
+}
+
+parse_git_flow_args() {
+  workspace=""
+  remote=""
+  source_branch=""
+  target_branch=""
+  test_command=""
+  allow_protected_branch=false
+  allow_protected_target=false
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --workspace)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --workspace"
+        workspace="$1"
+        ;;
+      --remote)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --remote"
+        remote="$1"
+        ;;
+      --source-branch)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --source-branch"
+        source_branch="$1"
+        ;;
+      --target-branch)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --target-branch"
+        target_branch="$1"
+        ;;
+      --test)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --test"
+        test_command="$1"
+        ;;
+      --allow-protected-branch)
+        allow_protected_branch=true
+        ;;
+      --allow-protected-target)
+        allow_protected_target=true
+        ;;
+      *)
+        fail "unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [ -n "$remote" ] || fail "missing --remote"
+  [ -n "$source_branch" ] || fail "missing --source-branch"
+  [ -n "$target_branch" ] || fail "missing --target-branch"
+}
+
+is_protected_branch() {
+  [ "$1" = "main" ] || [ "$1" = "master" ]
+}
+
+append_test_args() {
+  [ -n "$test_command" ] || return 0
+  printf ' --test %q' "$test_command"
+  return 0
+}
+
+controlled_status_command() {
+  printf 'bash scripts/controlled_git_flow.sh status --workspace %q' "$workspace"
+  return 0
+}
+
+controlled_auto_push_command() {
+  printf 'bash scripts/controlled_git_flow.sh auto-push --workspace %q --remote %q --branch %q' "$workspace" "$remote" "$source_branch"
+  append_test_args
+  [ "$allow_protected_branch" = "true" ] && printf ' --allow-protected-branch'
+  return 0
+}
+
+controlled_auto_merge_command() {
+  printf 'bash scripts/controlled_git_flow.sh auto-merge --workspace %q --remote %q --source-branch %q --target-branch %q' "$workspace" "$remote" "$source_branch" "$target_branch"
+  append_test_args
+  [ "$allow_protected_target" = "true" ] && printf ' --allow-protected-target'
+  return 0
 }
 
 print_status() {
@@ -336,8 +420,154 @@ command_review_draft() {
   echo "Review draft: $draft"
 }
 
+command_git_flow() {
+  loop_file="$1"
+  shift
+  parse_git_flow_args "$@"
+  verify_workspace "$workspace"
+  [ -x "scripts/controlled_git_flow.sh" ] || fail "scripts/controlled_git_flow.sh is missing or not executable"
+  git -C "$workspace" remote get-url "$remote" >/dev/null 2>&1 || fail "remote not found in workspace: $remote"
+
+  workspace_branch="$(git -C "$workspace" branch --show-current)"
+  workspace_status="$(git -C "$workspace" status --short)"
+  workspace_remotes="$(git -C "$workspace" remote -v)"
+  status_cmd="$(controlled_status_command)"
+  auto_push_cmd="$(controlled_auto_push_command)"
+  auto_merge_cmd="$(controlled_auto_merge_command)"
+  auto_push_execute_cmd="$auto_push_cmd --execute"
+  auto_merge_execute_cmd="$auto_merge_cmd --execute"
+  run_dir="$(new_run_dir "git-flow-handoff")"
+  report="$run_dir/handoff.md"
+
+  if is_protected_branch "$source_branch" && [ "$allow_protected_branch" != "true" ]; then
+    echo "Warning: source branch is protected by default; controlled_git_flow.sh will refuse execute mode without --allow-protected-branch." >&2
+  fi
+  if is_protected_branch "$target_branch" && [ "$allow_protected_target" != "true" ]; then
+    echo "Warning: target branch is protected by default; controlled_git_flow.sh will refuse execute mode without --allow-protected-target." >&2
+  fi
+  if [ "$workspace_branch" != "$source_branch" ]; then
+    echo "Warning: workspace is currently on '$workspace_branch'; controlled auto-push execute requires switching to '$source_branch' first." >&2
+  fi
+
+  {
+    echo "# Controlled Git Flow Handoff"
+    echo
+    echo "- Command: scripts/orchestia_loop.sh git-flow $loop_file --workspace $workspace --remote $remote --source-branch $source_branch --target-branch $target_branch"
+    echo "- Loop state: $loop_file"
+    echo "- Workspace: $workspace"
+    echo "- Remote: $remote"
+    echo "- Source branch: $source_branch"
+    echo "- Target branch: $target_branch"
+    echo "- Test command: ${test_command:-}"
+    echo
+    echo "## Current Loop Summary"
+    echo
+    echo "- Current primary need: $(current_primary_need "$loop_file")"
+    echo "- Current request: $(current_request "$loop_file")"
+    echo "- Current backlog item: $(current_backlog_item "$loop_file")"
+    echo "- Current task: $(current_task "$loop_file")"
+    echo "- Prepared Codex prompt: $(prepared_prompt "$loop_file")"
+    echo "- Decision: $(decision "$loop_file")"
+    echo "- Next action: $(next_action "$loop_file")"
+    echo "- Stop condition: $(stop_condition "$loop_file")"
+    echo
+    echo "## Workspace Git Summary"
+    echo
+    echo "- Workspace branch: ${workspace_branch:-unknown}"
+    if [ "$workspace_branch" != "$source_branch" ]; then
+      echo "- Warning: controlled auto-push execute requires the workspace to be on '$source_branch'."
+    fi
+    echo
+    echo "### Workspace Remotes"
+    echo
+    echo '```text'
+    printf '%s\n' "$workspace_remotes"
+    echo '```'
+    echo
+    echo "### Workspace Git Status"
+    echo
+    if [ -n "$workspace_status" ]; then
+      echo '```text'
+      printf '%s\n' "$workspace_status"
+      echo '```'
+    else
+      echo "(clean)"
+    fi
+    echo
+    echo "## Generated controlled_git_flow.sh Commands"
+    echo
+    echo "Status:"
+    echo
+    echo '```bash'
+    printf '%s\n' "$status_cmd"
+    echo '```'
+    echo
+    echo "Auto-push dry-run:"
+    echo
+    echo '```bash'
+    printf '%s\n' "$auto_push_cmd"
+    echo '```'
+    echo
+    echo "Auto-push execute, human-approved only:"
+    echo
+    echo '```bash'
+    printf '%s\n' "$auto_push_execute_cmd"
+    echo '```'
+    echo
+    echo "Auto-merge dry-run:"
+    echo
+    echo '```bash'
+    printf '%s\n' "$auto_merge_cmd"
+    echo '```'
+    echo
+    echo "Auto-merge execute, human-approved only:"
+    echo
+    echo '```bash'
+    printf '%s\n' "$auto_merge_execute_cmd"
+    echo '```'
+    echo
+    echo "Execute commands require human approval and must be run through controlled_git_flow.sh."
+  } > "$report"
+
+  print_status "$loop_file"
+  echo
+  echo "Workspace: $workspace"
+  echo "Workspace branch: ${workspace_branch:-unknown}"
+  echo "Workspace remotes:"
+  printf '%s\n' "$workspace_remotes"
+  echo "Workspace Git status:"
+  if [ -n "$workspace_status" ]; then
+    printf '%s\n' "$workspace_status"
+  else
+    echo "(clean)"
+  fi
+  echo
+  echo "Copyable controlled_git_flow.sh commands:"
+  echo "Status:"
+  printf '%s\n' "$status_cmd"
+  echo
+  echo "Auto-push dry-run:"
+  printf '%s\n' "$auto_push_cmd"
+  echo
+  echo "Auto-push execute, human-approved only:"
+  printf '%s\n' "$auto_push_execute_cmd"
+  echo
+  echo "Auto-merge dry-run:"
+  printf '%s\n' "$auto_merge_cmd"
+  echo
+  echo "Auto-merge execute, human-approved only:"
+  printf '%s\n' "$auto_merge_execute_cmd"
+  echo
+  echo "No push or merge was executed. Handoff report: $report"
+}
+
 main() {
   verify_orchestia_repo
+
+  [ "$#" -ge 1 ] || {
+    usage
+    exit 0
+  }
 
   [ "$#" -ge 2 ] || {
     usage
@@ -366,6 +596,9 @@ main() {
       ;;
     review-draft)
       command_review_draft "$loop_file" "$@"
+      ;;
+    git-flow)
+      command_git_flow "$loop_file" "$@"
       ;;
     *)
       usage
