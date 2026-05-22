@@ -26,6 +26,20 @@ Task -> Codex execution -> collect outputs -> review -> accept, revise, split or
 
 The review decision controls the next step. Accept advances the current need, revise creates a correction task, split creates smaller tasks, and reject returns to planning.
 
+## State-Driven Runner
+
+The first state-driven loop runner is `scripts/orchestia_loop.sh`. It reads a Loop state file and can show status, identify the next step, print a Codex command for a prepared prompt, collect workspace evidence, or create a review draft:
+
+```bash
+bash scripts/orchestia_loop.sh status logics/loop-states/LS-0001-sample-todo-cli.md
+bash scripts/orchestia_loop.sh next logics/loop-states/LS-0001-sample-todo-cli.md
+bash scripts/orchestia_loop.sh run logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/orchestia-samples/todo-cli
+bash scripts/orchestia_loop.sh collect logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/orchestia-samples/todo-cli --test "python3 -m unittest discover -s tests"
+bash scripts/orchestia_loop.sh review-draft logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/orchestia-samples/todo-cli
+```
+
+The runner keeps decisions human-supervised. It does not update Loop state, create accept/revise/split/reject decisions, push, merge, rebase, tag, or force push.
+
 ## 1. Request Creation
 
 Capture the user need in `logics/requests/`. Include the desired outcome, known context, constraints, open questions, and links to related Logics records.

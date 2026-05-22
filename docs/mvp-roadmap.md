@@ -12,6 +12,8 @@ The v0.2 orchestration prompts are `prompts/initial_need_intake_prompt.md`, `pro
 
 A sample v0.2 scenario is documented in [Sample v0.2 Orchestration Scenario](sample-v0.2-orchestration-scenario.md).
 
+The first state-driven loop runner has been introduced as `scripts/orchestia_loop.sh`. It reads Loop state, helps identify or run the next prepared prompt, collects evidence, and drafts reviews while keeping state updates and decisions human-supervised.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
@@ -109,7 +111,7 @@ For v0.2, Orchestia may support controlled auto branch execution, controlled aut
 
 ## v0.2 Candidate Tasks
 
-1. Create planned request, backlog, and task records for the sample PN-0001 project foundation need.
+1. Exercise `scripts/orchestia_loop.sh` against a non-complete Loop state.
 2. Add execution mode fields to Logics task templates.
 3. Add review schema fields for primary need completion and blockers.
 4. Define a manual primary-need decomposition example against a real project.

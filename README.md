@@ -120,6 +120,15 @@ Summarize the latest local task run:
 bash scripts/summarize_task_result.sh
 ```
 
+Inspect or assist a v0.2 state-driven loop step:
+
+```bash
+bash scripts/orchestia_loop.sh status logics/loop-states/LS-0001-sample-todo-cli.md
+bash scripts/orchestia_loop.sh next logics/loop-states/LS-0001-sample-todo-cli.md
+```
+
+The state-driven runner can print a Codex command, collect workspace evidence, and create a review draft. It does not update Loop state, push, merge, or make review decisions.
+
 The audit script writes `repo-audit.md` under a timestamped `task-runs/` directory. Paste that report into ChatGPT Business with `prompts/repo_audit_prompt.md` when you want a repository-level review.
 
 ## MVP Workflow

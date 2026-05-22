@@ -61,11 +61,14 @@ Fields:
 - Current request.
 - Current backlog item.
 - Current task.
+- Prepared Codex prompt.
 - Last Codex run.
 - Last review.
 - Decision.
 - Next action.
 - Stop condition.
+
+The state-driven loop runner reads these fields from the Loop state Markdown file. It expects the current fields to be written as simple list items such as `- Current task: ...` and `- Prepared Codex prompt: ...`; it does not require a full Markdown parser.
 
 Allowed task loop decision:
 
