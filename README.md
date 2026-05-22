@@ -137,6 +137,14 @@ bash scripts/orchestia_loop.sh git-flow logics/loop-states/LS-0001-sample-todo-c
 
 The handoff creates evidence under `task-runs/` and prints `controlled_git_flow.sh` status, dry-run, and human-approved execute commands. It does not push or merge.
 
+Draft a review from Git-flow evidence:
+
+```bash
+bash scripts/orchestia_loop.sh git-flow-review-draft logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --evidence-dir task-runs/example-controlled-git-flow
+```
+
+The draft is written under `task-runs/`; final Logics reviews and Loop state updates remain human-controlled.
+
 Inspect or dry-run controlled Git flow automation:
 
 ```bash

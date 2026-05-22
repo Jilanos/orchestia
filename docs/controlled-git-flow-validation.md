@@ -160,3 +160,5 @@ Add focused negative-path validation for controlled Git flow guardrails, includi
 ## Follow-Up Handoff Note
 
 `scripts/orchestia_loop.sh` now provides a `git-flow` handoff that reads Loop state and prints copyable `scripts/controlled_git_flow.sh` commands. The handoff creates evidence but does not execute push or merge; execute commands remain human-approved only.
+
+`scripts/orchestia_loop.sh` can also turn Git-flow evidence directories into review drafts with `git-flow-review-draft`. Drafts are written under `task-runs/`; final Logics review creation and Loop state advancement remain human-owned.

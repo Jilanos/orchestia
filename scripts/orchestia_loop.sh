@@ -10,6 +10,7 @@ usage:
   scripts/orchestia_loop.sh collect <loop-state> --workspace <path> [--test "<command>"]
   scripts/orchestia_loop.sh review-draft <loop-state> --workspace <path>
   scripts/orchestia_loop.sh git-flow <loop-state> --workspace <path> --remote <name> --source-branch <branch> --target-branch <branch> [--test "<command>"] [--allow-protected-branch] [--allow-protected-target]
+  scripts/orchestia_loop.sh git-flow-review-draft <loop-state> --workspace <path> [--evidence-dir task-runs/<dir>] [--decision accept|revise|split|reject]
 EOF
 }
 
@@ -223,6 +224,48 @@ parse_git_flow_args() {
   [ -n "$remote" ] || fail "missing --remote"
   [ -n "$source_branch" ] || fail "missing --source-branch"
   [ -n "$target_branch" ] || fail "missing --target-branch"
+}
+
+parse_git_flow_review_args() {
+  workspace=""
+  evidence_dir=""
+  review_decision="pending"
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --workspace)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --workspace"
+        workspace="$1"
+        ;;
+      --evidence-dir)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --evidence-dir"
+        evidence_dir="$1"
+        ;;
+      --decision)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --decision"
+        review_decision="$1"
+        case "$review_decision" in
+          accept|revise|split|reject) ;;
+          *) fail "--decision must be one of: accept, revise, split, reject" ;;
+        esac
+        ;;
+      *)
+        fail "unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [ -n "$workspace" ] || fail "missing --workspace"
+  if [ -n "$evidence_dir" ]; then
+    case "$evidence_dir" in
+      task-runs|task-runs/*) ;;
+      *) fail "--evidence-dir must be under task-runs/" ;;
+    esac
+  fi
 }
 
 is_protected_branch() {
@@ -561,6 +604,149 @@ command_git_flow() {
   echo "No push or merge was executed. Handoff report: $report"
 }
 
+write_evidence_excerpt() {
+  file="$1"
+  name="$(basename "$file")"
+  size="$(wc -c < "$file" | tr -d ' ')"
+
+  case "$name" in
+    *env*|*secret*|*credential*|*token*)
+      echo "- ${name}: skipped because the filename may contain sensitive material."
+      return 0
+      ;;
+  esac
+
+  if [ "$size" -gt 4000 ]; then
+    echo "- ${name}: skipped because it is larger than 4000 bytes."
+    return 0
+  fi
+
+  case "$name" in
+    *.md|*.txt|*.log|evidence)
+      echo "### $name"
+      echo
+      sed -E 's/([Tt]oken|[Ss]ecret|[Pp]assword|[Cc]redential)[^[:space:]]*/[REDACTED]/g' "$file" | sed -n '1,80p' | sed 's/^/    /'
+      ;;
+    *)
+      echo "- ${name}: listed but not excerpted."
+      ;;
+  esac
+}
+
+command_git_flow_review_draft() {
+  loop_file="$1"
+  shift
+  parse_git_flow_review_args "$@"
+  verify_workspace "$workspace"
+
+  run_dir="$(new_run_dir "git-flow-review")"
+  draft="$run_dir/git-flow-review-draft.md"
+  generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  workspace_branch="$(git -C "$workspace" branch --show-current)"
+  latest_commit="$(git -C "$workspace" log --oneline --max-count=1 || true)"
+  recent_commits="$(git -C "$workspace" log --oneline --max-count=5 || true)"
+  workspace_status="$(git -C "$workspace" status --short)"
+  prompt_value="$(prepared_prompt "$loop_file")"
+  prompt_target="$(link_target_or_value "$prompt_value")"
+
+  {
+    echo "# Git Flow Evidence Review Draft"
+    echo
+    echo "- Generated timestamp: $generated_at"
+    echo "- Loop state: $loop_file"
+    echo "- Workspace: $workspace"
+    echo "- Current primary need: $(current_primary_need "$loop_file")"
+    echo "- Current task: $(current_task "$loop_file")"
+    echo "- Prepared Codex prompt: ${prompt_target:-None}"
+    echo "- Evidence directory: ${evidence_dir:-None provided}"
+    echo
+    echo "## Workspace Summary"
+    echo
+    echo "- Current branch: ${workspace_branch:-unknown}"
+    echo "- Latest commit: ${latest_commit:-None}"
+    echo
+    echo "### Git Status"
+    echo
+    if [ -n "$workspace_status" ]; then
+      echo '```text'
+      printf '%s\n' "$workspace_status"
+      echo '```'
+    else
+      echo "(clean)"
+    fi
+    echo
+    echo "### Recent Commits"
+    echo
+    if [ -n "$recent_commits" ]; then
+      echo '```text'
+      printf '%s\n' "$recent_commits"
+      echo '```'
+    else
+      echo "(none)"
+    fi
+    echo
+    echo "## Evidence Files"
+    echo
+    if [ -n "$evidence_dir" ] && [ -d "$evidence_dir" ]; then
+      find "$evidence_dir" -maxdepth 1 -type f | sort | sed 's/^/- /'
+    elif [ -n "$evidence_dir" ]; then
+      echo "- Evidence directory was provided but is missing or empty: $evidence_dir"
+    else
+      echo "- No evidence directory provided."
+    fi
+    echo
+    echo "## Evidence Snippets"
+    echo
+    if [ -n "$evidence_dir" ] && [ -d "$evidence_dir" ]; then
+      found=false
+      for evidence_file in "$evidence_dir"/*; do
+        [ -f "$evidence_file" ] || continue
+        found=true
+        write_evidence_excerpt "$evidence_file"
+        echo
+      done
+      [ "$found" = "true" ] || echo "- Evidence directory contains no files."
+    else
+      echo "- No evidence snippets available."
+    fi
+    echo
+    echo "## Checks Performed"
+    echo
+    echo "- Reviewed Loop state path."
+    echo "- Inspected workspace branch, latest commit, Git status, and recent commits."
+    if [ -n "$evidence_dir" ]; then
+      echo "- Inspected provided evidence directory when available."
+    fi
+    echo
+    echo "## Findings"
+    echo
+    echo "- Pending human review."
+    echo
+    echo "## Risks"
+    echo
+    echo "- Pending human review."
+    echo
+    echo "## Decision"
+    echo
+    echo "$review_decision"
+    echo
+    echo "## Required Follow-Up"
+    echo
+    echo "- Pending human review."
+    echo
+    echo "## Next Recommended Task"
+    echo
+    echo "- Pending human review."
+    echo
+    echo "This is a draft. Human review is required before creating a Logics review or advancing Loop state."
+  } > "$draft"
+
+  echo "Run directory: $run_dir"
+  echo "Git flow review draft: $draft"
+  echo "Decision: $review_decision"
+  echo "No Logics review was created. Loop state was not updated."
+}
+
 main() {
   verify_orchestia_repo
 
@@ -599,6 +785,9 @@ main() {
       ;;
     git-flow)
       command_git_flow "$loop_file" "$@"
+      ;;
+    git-flow-review-draft)
+      command_git_flow_review_draft "$loop_file" "$@"
       ;;
     *)
       usage

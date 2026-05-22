@@ -48,6 +48,14 @@ bash scripts/orchestia_loop.sh git-flow logics/loop-states/LS-0001-sample-todo-c
 
 `orchestia_loop.sh` remains the state-driven runner, while `controlled_git_flow.sh` remains the Git automation runner. The `git-flow` handoff only generates safe commands and evidence; push and merge still require explicit human-approved execution through `controlled_git_flow.sh --execute`.
 
+Git-flow evidence can be transformed into a draft review without creating a final Logics review:
+
+```bash
+bash scripts/orchestia_loop.sh git-flow-review-draft logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/orchestia-samples/todo-cli --evidence-dir task-runs/example-controlled-git-flow
+```
+
+The draft lives under `task-runs/`. Final review creation, decisions, and Loop state advancement remain human-controlled and separate from the runner.
+
 ## Controlled Git Flow
 
 After a task is reviewed and checks pass, `scripts/controlled_git_flow.sh` can inspect a workspace, dry-run a controlled auto push from an isolated branch, or dry-run a controlled auto merge into an explicitly declared target branch:
