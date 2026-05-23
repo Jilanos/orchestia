@@ -32,6 +32,8 @@ Codex execution in controlled auto-loop mode has been introduced behind explicit
 
 The read-only sandbox blocker found during auto-loop Codex execution validation has been fixed by invoking `codex exec --sandbox workspace-write` for explicitly authorized Codex execution. Follow-up validation confirmed disposable workspace writes and test capture.
 
+Auto-loop Codex execution has also been validated on the sample todo CLI project using the isolated `feature/auto-loop-sample-validation` branch. The run produced a README-only change, captured evidence, left the decision pending, and did not advance Loop state automatically.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
