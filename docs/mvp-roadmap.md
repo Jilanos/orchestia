@@ -34,6 +34,8 @@ The read-only sandbox blocker found during auto-loop Codex execution validation 
 
 Auto-loop Codex execution has also been validated on the sample todo CLI project using the isolated `feature/auto-loop-sample-validation` branch. The run produced a README-only change, captured evidence, left the decision pending, and did not advance Loop state automatically.
 
+The full controlled chain has been validated on the dedicated sample repository: auto-loop evidence was finalized into a Logics review, the sample feature branch was pushed through controlled Git flow, the branch was merged into `integration`, and a full-chain review was finalized.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
