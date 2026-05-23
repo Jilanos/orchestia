@@ -30,6 +30,8 @@ Controlled auto loop mode has been introduced in `scripts/orchestia_loop.sh`. It
 
 Codex execution in controlled auto-loop mode has been introduced behind explicit `--execute-codex` or `--execute-all` flags. The loop now uses `codex exec`, captures execution and test evidence, and still requires human-owned decisions and explicit advancement fields.
 
+Auto-loop Codex execution validation against a disposable workspace is currently blocked: `codex exec` ran, but the session used a read-only sandbox, so the requested disposable file edits were rejected and the post-execution test failed.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
