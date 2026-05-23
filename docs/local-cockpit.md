@@ -65,6 +65,7 @@ Each auto-loop detail page shows:
 - current loop status
 - Human action required warnings
 - Codex execution status and exit code
+- Codex sandbox mode from command evidence when available
 - test command exit code when present
 - event log tail
 - errors, instructions, and stop requests when present

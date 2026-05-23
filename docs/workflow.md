@@ -78,13 +78,13 @@ Execution requires explicit authorization with `--execute-codex`, `--execute-git
 
 Humans still control stop requests, additional instructions, next primary need selection when ambiguous, blocker declaration, execution flags, and controlled Git push or merge execution.
 
-When `--execute-codex` or `--execute-all` is supplied, the auto-loop reads the prepared Codex prompt from Loop state, appends any local human instructions, and runs it from the target workspace through `codex exec`. The run captures `codex-stdout.txt`, `codex-stderr.txt`, `codex-exit-code.txt`, workspace status before and after, diff stat, recent commits, and optional test command output. A successful Codex run still stops for a human-owned review decision unless an explicit decision is already supplied.
+When `--execute-codex` or `--execute-all` is supplied, the auto-loop reads the prepared Codex prompt from Loop state, appends any local human instructions, and runs it from the target workspace through `codex exec --sandbox workspace-write`. The explicit workspace-write sandbox resolves the previous read-only execution blocker while keeping writes scoped to the verified target workspace. The run captures `codex-stdout.txt`, `codex-stderr.txt`, `codex-exit-code.txt`, workspace status before and after, diff stat, recent commits, and optional test command output. A successful Codex run still stops for a human-owned review decision unless an explicit decision is already supplied.
 
 The executable flow is:
 
 1. Dry-run preview.
 2. Explicit `--execute-codex`.
-3. Codex execution through `codex exec`.
+3. Codex execution through `codex exec --sandbox workspace-write`.
 4. Evidence and optional test collection.
 5. Review draft.
 6. Explicit accept, revise, split, or reject decision.

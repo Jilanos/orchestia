@@ -435,6 +435,7 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
                 f'<a href="/auto-loop-run?path={quote(latest_rel)}">{esc(latest_auto.name)}</a></p>'
                 f'<p><strong>Status:</strong> {esc(auto_loop_status(latest_auto))}</p>'
                 f'<p><strong>Codex executed:</strong> {esc(codex_executed)}</p>'
+                f'<p><strong>Codex sandbox mode:</strong> {esc(auto_loop_file_value(latest_auto, "codex-sandbox-mode.txt"))}</p>'
                 f'<p><strong>Codex exit code:</strong> {esc(auto_loop_file_value(latest_auto, "codex-exit-code.txt"))}</p>'
                 f'<p><strong>Test exit code:</strong> {esc(auto_loop_file_value(latest_auto, "test-exit-code.txt"))}</p>'
                 f'<p><strong>Latest event:</strong> {esc(latest_event(latest_auto))}</p>'
@@ -587,6 +588,7 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 <p><strong>Active task:</strong> {esc(auto_loop_field(path, ['current task']))}</p>
 <p><strong>Prepared prompt:</strong> {esc(auto_loop_field(path, ['prepared prompt path', 'prepared codex prompt']))}</p>
 <p><strong>Codex executed:</strong> {esc(auto_loop_field(path, ['codex executed']))}</p>
+<p><strong>Codex sandbox mode:</strong> {esc(auto_loop_file_value(path, 'codex-sandbox-mode.txt'))}</p>
 <p><strong>Codex exit code:</strong> {esc(auto_loop_file_value(path, 'codex-exit-code.txt'))}</p>
 <p><strong>Test exit code:</strong> {esc(auto_loop_file_value(path, 'test-exit-code.txt'))}</p>
 <p><strong>Decision:</strong> {esc(auto_loop_field(path, ['decision']))}</p>

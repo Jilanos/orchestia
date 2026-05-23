@@ -120,3 +120,71 @@ Key evidence files:
 ## Next Recommended Task
 
 Revise auto-loop Codex execution to pass an explicit safe sandbox mode for disposable or authorized workspaces, then rerun this validation.
+
+## Follow-up Validation: Workspace-write Sandbox Fix
+
+The previous blocker was addressed by updating auto-loop Codex execution to invoke:
+
+```bash
+codex exec --sandbox workspace-write
+```
+
+The default auto-loop mode remains dry-run. The writable sandbox is used only when `--execute-codex` or `--execute-all` is explicitly provided, after the target workspace has been verified and confirmed clean.
+
+Follow-up disposable validation used:
+
+- Disposable workspace: `task-runs/auto-loop-codex-sandbox-validation-workspace/`
+- Disposable Loop state: `task-runs/auto-loop-codex-sandbox-validation-loop-state.md`
+- Disposable prepared prompt: `task-runs/auto-loop-codex-sandbox-validation-prompt.md`
+- Auto-loop evidence: `task-runs/20260523T205548Z-auto-loop/`
+
+Command:
+
+```bash
+bash scripts/orchestia_loop.sh auto-loop \
+  task-runs/auto-loop-codex-sandbox-validation-loop-state.md \
+  --workspace task-runs/auto-loop-codex-sandbox-validation-workspace \
+  --max-steps 1 \
+  --execute-codex \
+  --test "test -f validation.txt"
+```
+
+Follow-up result:
+
+- Codex command: `codex exec --sandbox workspace-write`
+- Codex sandbox mode: `workspace-write`
+- Codex exit code: `0`
+- Test exit code: `0`
+- `hello.txt` was updated with `Codex workspace-write execution validated.`
+- `validation.txt` was created with `validation passed`
+- Workspace status before execution: clean
+- Workspace status after execution: modified files pending review
+- Diff stat after execution: captured
+- Review draft: created
+- Decision: pending
+- Loop state advancement: not performed
+
+Evidence files:
+
+- `task-runs/20260523T205548Z-auto-loop/codex-command.txt`
+- `task-runs/20260523T205548Z-auto-loop/codex-stdout.txt`
+- `task-runs/20260523T205548Z-auto-loop/codex-stderr.txt`
+- `task-runs/20260523T205548Z-auto-loop/codex-exit-code.txt`
+- `task-runs/20260523T205548Z-auto-loop/codex-sandbox-mode.txt`
+- `task-runs/20260523T205548Z-auto-loop/workspace-status-before.txt`
+- `task-runs/20260523T205548Z-auto-loop/workspace-status-after.txt`
+- `task-runs/20260523T205548Z-auto-loop/workspace-diff-stat-after.txt`
+- `task-runs/20260523T205548Z-auto-loop/test-exit-code.txt`
+- `task-runs/20260523T205548Z-auto-loop/review-draft.md`
+
+Safety observations:
+
+- No Codex execution occurred against Orchestia or the sample todo CLI.
+- No controlled Git flow execute path was used.
+- No push, merge, rebase, tag, or force push occurred.
+- No files under `/mnt/c` were modified.
+
+Remaining risks:
+
+- Workspace-write execution is intentionally powerful within the verified target workspace and must remain gated by explicit `--execute-codex` or `--execute-all`.
+- Post-execution checks remain necessary because Codex exit code alone is not sufficient to prove task success.

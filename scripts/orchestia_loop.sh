@@ -1112,6 +1112,7 @@ write_auto_command_preview() {
     echo "# Auto Loop Command Preview"
     echo
     echo "Default mode is dry-run. Commands with execution flags require explicit human approval."
+    echo "Executable Codex mode uses codex exec --sandbox workspace-write, limited to the verified target workspace."
     echo
     echo "## Loop Commands"
     echo
@@ -1121,7 +1122,7 @@ write_auto_command_preview() {
     printf 'bash scripts/orchestia_loop.sh run %q --workspace %q\n' "$loop_file" "$workspace"
     if [ -n "$prompt_target" ]; then
       printf 'bash scripts/orchestia_loop.sh auto-loop %q --workspace %q --max-steps 1 --execute-codex\n' "$loop_file" "$workspace"
-      printf 'cd %q && codex exec - < %q\n' "$workspace" "$prompt_target"
+      printf 'cd %q && codex exec --sandbox workspace-write - < %q\n' "$workspace" "$prompt_target"
     fi
     echo '```'
     echo
@@ -1263,10 +1264,11 @@ execute_codex_prompt() {
   prepare_codex_prompt "$run_dir" "$loop_file" || return 1
 
   codex_prompt_abs="$PWD/$run_dir/codex-prompt.md"
-  printf 'cd %q && codex exec - < %q\n' "$workspace" "$codex_prompt_abs" > "$run_dir/codex-command.txt"
+  printf 'workspace-write\n' > "$run_dir/codex-sandbox-mode.txt"
+  printf 'cd %q && codex exec --sandbox workspace-write - < %q\n' "$workspace" "$codex_prompt_abs" > "$run_dir/codex-command.txt"
   append_auto_event "$run_dir" "codex_running"
   set +e
-  (cd "$workspace" && codex exec - < "$codex_prompt_abs") > "$run_dir/codex-stdout.txt" 2> "$run_dir/codex-stderr.txt"
+  (cd "$workspace" && codex exec --sandbox workspace-write - < "$codex_prompt_abs") > "$run_dir/codex-stdout.txt" 2> "$run_dir/codex-stderr.txt"
   codex_exit_code=$?
   set -e
   printf '%s\n' "$codex_exit_code" > "$run_dir/codex-exit-code.txt"
@@ -1293,6 +1295,7 @@ write_auto_review_draft() {
   workspace_status="$(git -C "$workspace" status --short || true)"
   prompt_path="$(cat "$run_dir/prepared-prompt-path.txt" 2>/dev/null || true)"
   codex_command="$(cat "$run_dir/codex-command.txt" 2>/dev/null || true)"
+  codex_sandbox_mode="$(cat "$run_dir/codex-sandbox-mode.txt" 2>/dev/null || echo "not run")"
   codex_exit_code="$(cat "$run_dir/codex-exit-code.txt" 2>/dev/null || echo "not run")"
   test_exit_code="$(cat "$run_dir/test-exit-code.txt" 2>/dev/null || echo "not run")"
 
@@ -1306,6 +1309,7 @@ write_auto_review_draft() {
     echo "- Current task: $(current_task "$loop_file")"
     echo "- Prepared Codex prompt: ${prompt_path:-$(prepared_prompt "$loop_file")}"
     echo "- Codex command: ${codex_command:-not run}"
+    echo "- Codex sandbox mode: $codex_sandbox_mode"
     echo "- Codex exit code: $codex_exit_code"
     echo "- Test command: ${test_command:-not provided}"
     echo "- Test exit code: $test_exit_code"
@@ -1423,6 +1427,7 @@ write_auto_loop_state() {
   status_text="$3"
   codex_executed="no"
   [ -f "$run_dir/codex-exit-code.txt" ] && codex_executed="yes"
+  codex_sandbox_mode="$(cat "$run_dir/codex-sandbox-mode.txt" 2>/dev/null || echo "not run")"
   codex_exit_code="$(cat "$run_dir/codex-exit-code.txt" 2>/dev/null || echo "not run")"
   test_exit_code="$(cat "$run_dir/test-exit-code.txt" 2>/dev/null || echo "not run")"
   prompt_path="$(cat "$run_dir/prepared-prompt-path.txt" 2>/dev/null || true)"
@@ -1441,6 +1446,7 @@ write_auto_loop_state() {
     echo "- Decision: ${auto_decision:-pending}"
     echo "- Blocker: ${auto_blocker:-None}"
     echo "- Codex executed: $codex_executed"
+    echo "- Codex sandbox mode: $codex_sandbox_mode"
     echo "- Codex exit code: $codex_exit_code"
     echo "- Test exit code: $test_exit_code"
     echo

@@ -170,7 +170,7 @@ Execute the active prepared Codex prompt non-interactively only when explicitly 
 bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --max-steps 1 --execute-codex --test "python3 -m unittest discover -s tests"
 ```
 
-Executable auto-loop mode uses `codex exec` from the target workspace, captures stdout, stderr, exit code, workspace status, diff stat, recent commits, and optional test output under `task-runs/`. It still does not decide, push, merge, commit, or advance Loop state unless the required explicit decision and advancement arguments are supplied.
+Executable auto-loop mode uses `codex exec --sandbox workspace-write` from the verified target workspace, captures stdout, stderr, exit code, workspace status, diff stat, recent commits, and optional test output under `task-runs/`. The default remains dry-run, and auto-loop still does not decide, push, merge, commit, or advance Loop state unless the required explicit decision and advancement arguments are supplied.
 
 Start the local cockpit:
 
