@@ -26,6 +26,8 @@ Human-approved review finalization support has been introduced in `scripts/orche
 
 The first local cockpit has been introduced as `scripts/orchestia_ui.py`. It provides a read-only HTML view of Loop state, `task-runs/`, Logics records, reviews, and debug status on `127.0.0.1`.
 
+Controlled auto loop mode has been introduced in `scripts/orchestia_loop.sh`. It creates auto-loop evidence under `task-runs/`, previews commands, supports human instructions and stop requests, requires explicit execution flags, requires explicit decisions, and advances Loop state only when the required human-provided fields are present.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

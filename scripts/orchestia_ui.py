@@ -225,7 +225,55 @@ def infer_run_type(path: Path) -> str:
         return "git-flow-handoff"
     if "git-flow-review" in name:
         return "git-flow-review-draft"
+    if "auto-loop" in name:
+        return "auto-loop"
     return "unknown"
+
+
+def auto_loop_dirs(repo: Path) -> list[Path]:
+    root = repo / "task-runs"
+    if not root.exists():
+        return []
+    return sorted(
+        (path for path in root.glob("*-auto-loop") if path.is_dir() and not path.name.startswith(".")),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
+def optional_text(path: Path, limit: int = 8000) -> str:
+    if not path.exists() or not path.is_file():
+        return ""
+    if path.stat().st_size > limit:
+        return read_text_file(path)[:limit] + "\n... truncated ..."
+    return read_text_file(path)
+
+
+def tail_lines(text: str, count: int = 40) -> str:
+    lines = text.splitlines()
+    return "\n".join(lines[-count:]) if len(lines) > count else text
+
+
+def latest_event(run_dir: Path) -> str:
+    events = optional_text(run_dir / "events.log")
+    if not events.strip():
+        return "None"
+    return events.splitlines()[-1]
+
+
+def auto_loop_status(run_dir: Path) -> str:
+    if (run_dir / "stop-request.md").exists():
+        return "human action required: stop requested"
+    if (run_dir / "errors.md").exists():
+        return "human action required: errors"
+    state = optional_text(run_dir / "auto-loop-state.md")
+    draft = optional_text(run_dir / "review-draft.md")
+    combined = f"{state}\n{draft}".lower()
+    if "human action required" in combined:
+        return "human action required"
+    if "decision: pending" in combined or "\npending\n" in combined:
+        return "human action required: pending decision"
+    return "available"
 
 
 def page(title: str, body: str) -> bytes:
@@ -233,6 +281,7 @@ def page(title: str, body: str) -> bytes:
         [
             route_link("/", "Dashboard"),
             route_link("/loops", "Loops"),
+            route_link("/auto-loop", "Auto Loop"),
             route_link("/runs", "Runs"),
             route_link("/logics", "Logics"),
             route_link("/reviews", "Reviews"),
@@ -292,6 +341,8 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
             "/": self.dashboard,
             "/loops": self.loops,
             "/loop": lambda: self.loop_detail(query),
+            "/auto-loop": self.auto_loop,
+            "/auto-loop-run": lambda: self.auto_loop_run(query),
             "/runs": self.runs,
             "/run": lambda: self.run_detail(query),
             "/file": lambda: self.file_view(query),
@@ -339,6 +390,19 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
             ("Reviews", count_files(repo, "logics/reviews")),
             ("task-runs", len([p for p in (repo / "task-runs").glob("*") if p.is_dir()]) if (repo / "task-runs").exists() else 0),
         ]
+        auto_runs = auto_loop_dirs(repo)
+        latest_auto = auto_runs[0] if auto_runs else None
+        if latest_auto and "human action required" in auto_loop_status(latest_auto):
+            warnings.append(f"Human action required in latest auto-loop run: {latest_auto.name}")
+        latest_auto_html = "<p>No auto-loop runs found.</p>"
+        if latest_auto:
+            latest_rel = rel(repo, latest_auto)
+            latest_auto_html = (
+                f'<p><strong>Latest auto-loop:</strong> '
+                f'<a href="/auto-loop-run?path={quote(latest_rel)}">{esc(latest_auto.name)}</a></p>'
+                f'<p><strong>Status:</strong> {esc(auto_loop_status(latest_auto))}</p>'
+                f'<p><strong>Latest event:</strong> {esc(latest_event(latest_auto))}</p>'
+            )
         warning_html = "".join(f'<div class="warn">{esc(item)}</div>' for item in warnings) or '<div class="ok">No dashboard warnings.</div>'
         card_html = "".join(f'<div class="card"><div class="muted">{esc(label)}</div><div class="metric">{value}</div></div>' for label, value in cards)
         body = f"""
@@ -352,9 +416,15 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 </section>
 <div class="grid">{card_html}</div>
 <section>
+  <h2>Auto-loop</h2>
+  {latest_auto_html}
+  <p>{route_link('/auto-loop', 'View auto-loop runs')}</p>
+</section>
+<section>
   <h2>Main sections</h2>
   <ul>
     <li>{route_link('/loops', 'Loop states')}</li>
+    <li>{route_link('/auto-loop', 'Auto-loop runs')}</li>
     <li>{route_link('/runs', 'task-runs reports')}</li>
     <li>{route_link('/logics', 'Logics files')}</li>
     <li>{route_link('/reviews', 'Reviews')}</li>
@@ -419,6 +489,76 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 <section><h2>Content</h2><pre>{esc(text)}</pre></section>
 """
         return page("Loop detail", body)
+
+    def auto_loop(self) -> bytes:
+        rows = []
+        for path in auto_loop_dirs(self.repo):
+            path_rel = rel(self.repo, path)
+            rows.append(
+                "<tr>"
+                f'<td><a href="/auto-loop-run?path={quote(path_rel)}">{esc(path.name)}</a></td>'
+                f"<td>{esc(auto_loop_status(path))}</td>"
+                f"<td>{esc(latest_event(path))}</td>"
+                f"<td>{'yes' if (path / 'instructions.md').exists() else 'no'}</td>"
+                f"<td>{'yes' if (path / 'stop-request.md').exists() else 'no'}</td>"
+                f"<td>{'yes' if (path / 'errors.md').exists() else 'no'}</td>"
+                "</tr>"
+            )
+        table = "".join(rows) or '<tr><td colspan="6">No auto-loop runs found.</td></tr>'
+        body = f"""
+<section><h2>Auto-loop runs</h2>
+<table><thead><tr><th>Run</th><th>Status</th><th>Latest event</th><th>Instructions</th><th>Stop</th><th>Errors</th></tr></thead><tbody>{table}</tbody></table>
+</section>
+"""
+        return page("Auto Loop", body)
+
+    def auto_loop_run(self, query: dict[str, list[str]]) -> bytes:
+        try:
+            path = safe_join(self.repo, query.get("path", [""])[0])
+        except ValueError as exc:
+            return page("Auto-loop blocked", f'<section><div class="warn">{esc(exc)}</div></section>')
+        if not path.exists() or not path.is_dir():
+            return page("Auto-loop missing", '<section><h2>Auto-loop run not found</h2></section>')
+        path_rel = rel(self.repo, path)
+        if not path_rel.startswith("task-runs/") or not path.name.endswith("-auto-loop"):
+            return page("Auto-loop blocked", '<section><div class="warn">Only task-runs/*-auto-loop directories are shown here.</div></section>')
+
+        status = auto_loop_status(path)
+        action = '<div class="warn">Human action required.</div>' if "human action required" in status else '<div class="ok">No immediate human action detected.</div>'
+        status_cmd = f"bash scripts/orchestia_loop.sh auto-loop-status {path_rel}"
+        instruct_cmd = f'bash scripts/orchestia_loop.sh auto-loop-instruct {path_rel} "Add human instruction here."'
+        stop_cmd = f'bash scripts/orchestia_loop.sh auto-loop-stop {path_rel} "Stop reason here."'
+
+        def section(name: str, filename: str, lines: int = 40) -> str:
+            target = path / filename
+            text = optional_text(target)
+            if not text:
+                return f"<section><h2>{esc(name)}</h2><p class=\"muted\">Not present.</p></section>"
+            link = file_link(self.repo, target, "open full file")
+            return f"<section><h2>{esc(name)}</h2><p>{link}</p><pre>{esc(tail_lines(text, lines))}</pre></section>"
+
+        body = f"""
+<section><h2>{esc(path.name)}</h2>
+{action}
+<p><strong>Status:</strong> {esc(status)}</p>
+<p><strong>Latest event:</strong> {esc(latest_event(path))}</p>
+<p>{route_link('/auto-loop', 'Back to auto-loop runs')}</p>
+</section>
+<section><h2>Copyable CLI commands</h2>
+<pre>{esc(status_cmd)}
+{esc(instruct_cmd)}
+{esc(stop_cmd)}</pre>
+<p class="muted">The cockpit does not execute these commands or modify Loop state.</p>
+</section>
+{section('Auto-loop state', 'auto-loop-state.md')}
+{section('Events tail', 'events.log')}
+{section('Errors', 'errors.md')}
+{section('Instructions', 'instructions.md')}
+{section('Stop request', 'stop-request.md')}
+{section('Command preview', 'command-preview.md')}
+{section('Review draft', 'review-draft.md')}
+"""
+        return page("Auto-loop run", body)
 
     def runs(self) -> bytes:
         root = self.repo / "task-runs"

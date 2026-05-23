@@ -12,6 +12,10 @@ usage:
   scripts/orchestia_loop.sh git-flow <loop-state> --workspace <path> --remote <name> --source-branch <branch> --target-branch <branch> [--test "<command>"] [--allow-protected-branch] [--allow-protected-target]
   scripts/orchestia_loop.sh git-flow-review-draft <loop-state> --workspace <path> [--evidence-dir task-runs/<dir>] [--decision accept|revise|split|reject]
   scripts/orchestia_loop.sh finalize-review --draft task-runs/<dir>/<draft.md> --review-id REVIEW-XXXX --review-title "<title>" --reviewed-task TASK-XXXX --decision accept|revise|split|reject
+  scripts/orchestia_loop.sh auto-loop <loop-state> --workspace <path> --max-steps <n> [--decision accept|revise|split|reject] [--advance --last-review <path> --next-action "<text>" --stop-condition "<text>"]
+  scripts/orchestia_loop.sh auto-loop-status task-runs/<dir>-auto-loop
+  scripts/orchestia_loop.sh auto-loop-instruct task-runs/<dir>-auto-loop "<instruction>"
+  scripts/orchestia_loop.sh auto-loop-stop task-runs/<dir>-auto-loop "<reason>"
 EOF
 }
 
@@ -337,6 +341,147 @@ parse_finalize_review_args() {
     TASK-*) ;;
     *) fail "--reviewed-task must start with TASK-" ;;
   esac
+}
+
+validate_decision() {
+  case "$1" in
+    accept|revise|split|reject) ;;
+    *) fail "--decision must be one of: accept, revise, split, reject" ;;
+  esac
+}
+
+parse_auto_loop_args() {
+  workspace=""
+  max_steps=""
+  execute_codex=false
+  execute_git_flow=false
+  execute_all=false
+  auto_decision=""
+  auto_advance=false
+  auto_last_review=""
+  auto_last_run=""
+  auto_next_primary_need=""
+  auto_next_request=""
+  auto_next_backlog=""
+  auto_next_task=""
+  auto_next_action=""
+  auto_stop_condition=""
+  auto_blocker=""
+  test_command=""
+  remote=""
+  source_branch=""
+  target_branch=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --workspace)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --workspace"
+        workspace="$1"
+        ;;
+      --max-steps)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --max-steps"
+        max_steps="$1"
+        ;;
+      --execute-codex)
+        execute_codex=true
+        ;;
+      --execute-git-flow)
+        execute_git_flow=true
+        ;;
+      --execute-all)
+        execute_all=true
+        execute_codex=true
+        execute_git_flow=true
+        ;;
+      --decision)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --decision"
+        auto_decision="$1"
+        validate_decision "$auto_decision"
+        ;;
+      --advance)
+        auto_advance=true
+        ;;
+      --last-review)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --last-review"
+        auto_last_review="$1"
+        ;;
+      --last-run)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --last-run"
+        auto_last_run="$1"
+        ;;
+      --next-primary-need)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --next-primary-need"
+        auto_next_primary_need="$1"
+        ;;
+      --next-request)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --next-request"
+        auto_next_request="$1"
+        ;;
+      --next-backlog)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --next-backlog"
+        auto_next_backlog="$1"
+        ;;
+      --next-task)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --next-task"
+        auto_next_task="$1"
+        ;;
+      --next-action)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --next-action"
+        auto_next_action="$1"
+        ;;
+      --stop-condition)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --stop-condition"
+        auto_stop_condition="$1"
+        ;;
+      --blocker)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --blocker"
+        auto_blocker="$1"
+        ;;
+      --test)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --test"
+        test_command="$1"
+        ;;
+      --remote)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --remote"
+        remote="$1"
+        ;;
+      --source-branch)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --source-branch"
+        source_branch="$1"
+        ;;
+      --target-branch)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --target-branch"
+        target_branch="$1"
+        ;;
+      *)
+        fail "unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [ -n "$workspace" ] || fail "missing --workspace"
+  [ -n "$max_steps" ] || fail "missing --max-steps"
+  case "$max_steps" in
+    ''|*[!0-9]*) fail "--max-steps must be a positive integer" ;;
+  esac
+  [ "$max_steps" -gt 0 ] || fail "--max-steps must be greater than zero"
 }
 
 is_protected_branch() {
@@ -915,6 +1060,397 @@ command_git_flow_review_draft() {
   echo "No Logics review was created. Loop state was not updated."
 }
 
+require_auto_loop_dir() {
+  run_dir="$1"
+  [ -n "$run_dir" ] || fail "missing auto-loop run directory"
+  case "$run_dir" in
+    task-runs/*-auto-loop) ;;
+    *) fail "auto-loop directory must be under task-runs/ and end with -auto-loop" ;;
+  esac
+  case "$run_dir" in
+    *..*) fail "auto-loop directory must not contain '..'" ;;
+  esac
+  [ -d "$run_dir" ] || fail "auto-loop directory not found: $run_dir"
+}
+
+append_auto_event() {
+  run_dir="$1"
+  message="$2"
+  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$message" >> "$run_dir/events.log"
+}
+
+read_auto_instructions() {
+  run_dir="$1"
+  if [ -f "$run_dir/instructions.md" ]; then
+    sed -n '1,120p' "$run_dir/instructions.md"
+  else
+    echo "None"
+  fi
+}
+
+write_auto_command_preview() {
+  run_dir="$1"
+  loop_file="$2"
+  prompt_value="$(prepared_prompt "$loop_file")"
+  prompt_target="$(link_target_or_value "$prompt_value")"
+
+  {
+    echo "# Auto Loop Command Preview"
+    echo
+    echo "Default mode is dry-run. Commands with execution flags require explicit human approval."
+    echo
+    echo "## Loop Commands"
+    echo
+    echo '```bash'
+    printf 'bash scripts/orchestia_loop.sh status %q\n' "$loop_file"
+    printf 'bash scripts/orchestia_loop.sh next %q\n' "$loop_file"
+    printf 'bash scripts/orchestia_loop.sh run %q --workspace %q\n' "$loop_file" "$workspace"
+    if [ -n "$prompt_target" ]; then
+      printf 'bash scripts/orchestia_loop.sh run %q --workspace %q --execute\n' "$loop_file" "$workspace"
+    fi
+    echo '```'
+    echo
+    echo "## Controlled Git Flow Commands"
+    if [ -n "$remote" ] && [ -n "$source_branch" ] && [ -n "$target_branch" ]; then
+      echo
+      echo "Dry-run and human-approved execute commands:"
+      echo
+      echo '```bash'
+      printf 'bash scripts/controlled_git_flow.sh status --workspace %q\n' "$workspace"
+      printf 'bash scripts/controlled_git_flow.sh auto-push --workspace %q --remote %q --branch %q' "$workspace" "$remote" "$source_branch"
+      [ -n "$test_command" ] && printf ' --test %q' "$test_command"
+      printf '\n'
+      printf 'bash scripts/controlled_git_flow.sh auto-push --workspace %q --remote %q --branch %q' "$workspace" "$remote" "$source_branch"
+      [ -n "$test_command" ] && printf ' --test %q' "$test_command"
+      printf ' --execute # human-approved only\n'
+      printf 'bash scripts/controlled_git_flow.sh auto-merge --workspace %q --remote %q --source-branch %q --target-branch %q' "$workspace" "$remote" "$source_branch" "$target_branch"
+      [ -n "$test_command" ] && printf ' --test %q' "$test_command"
+      printf '\n'
+      printf 'bash scripts/controlled_git_flow.sh auto-merge --workspace %q --remote %q --source-branch %q --target-branch %q' "$workspace" "$remote" "$source_branch" "$target_branch"
+      [ -n "$test_command" ] && printf ' --test %q' "$test_command"
+      printf ' --execute # human-approved only\n'
+      echo '```'
+    else
+      echo
+      echo "Provide --remote, --source-branch, and --target-branch to generate controlled Git flow commands."
+    fi
+  } > "$run_dir/command-preview.md"
+}
+
+write_auto_review_draft() {
+  run_dir="$1"
+  loop_file="$2"
+  review_decision="${auto_decision:-pending}"
+  workspace_branch="$(git -C "$workspace" branch --show-current || true)"
+  latest_commit="$(git -C "$workspace" log --oneline --max-count=1 || true)"
+  workspace_status="$(git -C "$workspace" status --short || true)"
+
+  {
+    echo "# Auto Loop Review Draft"
+    echo
+    echo "- Generated timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "- Loop state: $loop_file"
+    echo "- Workspace: $workspace"
+    echo "- Current primary need: $(current_primary_need "$loop_file")"
+    echo "- Current task: $(current_task "$loop_file")"
+    echo "- Prepared Codex prompt: $(prepared_prompt "$loop_file")"
+    echo "- Workspace branch: ${workspace_branch:-unknown}"
+    echo "- Latest workspace commit: ${latest_commit:-None}"
+    echo
+    echo "## Workspace Git Status"
+    echo
+    if [ -n "$workspace_status" ]; then
+      echo '```text'
+      printf '%s\n' "$workspace_status"
+      echo '```'
+    else
+      echo "(clean)"
+    fi
+    echo
+    echo "## Inputs Reviewed"
+    echo
+    echo "- Loop state file."
+    echo "- Workspace Git summary."
+    echo "- Auto-loop command preview."
+    echo
+    echo "## Checks Performed"
+    echo
+    echo "- Repository context verified."
+    echo "- Workspace path and Git repository verified."
+    echo "- No execution flags were required for dry-run mode."
+    echo
+    echo "## Findings"
+    echo
+    if loop_is_complete "$loop_file"; then
+      echo "- No executable task is pending for this Loop state."
+    else
+      echo "- Current task remains pending human review or execution."
+    fi
+    echo
+    echo "## Risks"
+    echo
+    echo "- Human review is required before creating a final Logics review or advancing Loop state."
+    echo
+    echo "## Decision"
+    echo
+    echo "$review_decision"
+    echo
+    echo "## Required Follow-Up"
+    echo
+    if [ -z "$auto_decision" ]; then
+      echo "- Human action required: provide an explicit accept, revise, split, or reject decision before advancement."
+    else
+      echo "- Decision was provided explicitly; Loop state advancement still requires --advance and required fields."
+    fi
+    echo
+    echo "## Next Recommended Task"
+    echo
+    echo "- $(next_action "$loop_file")"
+    echo
+    echo "This is a draft. Human review is required before creating a Logics review or advancing Loop state."
+  } > "$run_dir/review-draft.md"
+}
+
+write_auto_loop_state() {
+  run_dir="$1"
+  loop_file="$2"
+  status_text="$3"
+  {
+    echo "# Auto Loop State"
+    echo
+    echo "- Generated timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "- Status: $status_text"
+    echo "- Loop state: $loop_file"
+    echo "- Workspace: $workspace"
+    echo "- Max steps: $max_steps"
+    echo "- Execute Codex authorized: $execute_codex"
+    echo "- Execute Git flow authorized: $execute_git_flow"
+    echo "- Execute all authorized: $execute_all"
+    echo "- Decision: ${auto_decision:-pending}"
+    echo "- Blocker: ${auto_blocker:-None}"
+    echo
+    echo "## Current Loop Summary"
+    echo
+    echo "- Current primary need: $(current_primary_need "$loop_file")"
+    echo "- Current request: $(current_request "$loop_file")"
+    echo "- Current backlog item: $(current_backlog_item "$loop_file")"
+    echo "- Current task: $(current_task "$loop_file")"
+    echo "- Prepared Codex prompt: $(prepared_prompt "$loop_file")"
+    echo "- Last Codex run: $(field_value "Last Codex run" "$loop_file")"
+    echo "- Last review: $(field_value "Last review" "$loop_file")"
+    echo "- Next action: $(next_action "$loop_file")"
+    echo "- Stop condition: $(stop_condition "$loop_file")"
+    echo
+    echo "## Human Instructions"
+    echo
+    read_auto_instructions "$run_dir"
+    echo
+    echo "## Human Action Required"
+    if [ -n "$auto_blocker" ]; then
+      echo "Firm blocker recorded. Human resolution is required."
+    elif [ -f "$run_dir/stop-request.md" ]; then
+      echo "Stop request exists. The loop must stop at this checkpoint."
+    elif [ -z "$auto_decision" ]; then
+      echo "Decision is pending. Human action required before Loop state advancement."
+    else
+      echo "Decision provided explicitly. Advancement still requires --advance and all required fields."
+    fi
+  } > "$run_dir/auto-loop-state.md"
+}
+
+update_loop_state_field() {
+  input_file="$1"
+  output_file="$2"
+  label="$3"
+  value="$4"
+  awk -v label="$label" -v value="$value" '
+    BEGIN { found = 0; wanted = tolower(label) ":" }
+    {
+      line = $0
+      normalized = tolower(line)
+      sub(/^[[:space:]]*-[[:space:]]*/, "", normalized)
+      if (normalized ~ "^" wanted) {
+        print "- " label ": " value
+        found = 1
+      } else {
+        print line
+      }
+    }
+    END {
+      if (!found) {
+        print "- " label ": " value
+      }
+    }
+  ' "$input_file" > "$output_file"
+}
+
+advance_loop_state() {
+  run_dir="$1"
+  loop_file="$2"
+
+  case "$loop_file" in
+    logics/loop-states/*.md) ;;
+    *) fail "--advance requires a Loop state file under logics/loop-states/" ;;
+  esac
+  [ -n "$auto_decision" ] || fail "--advance requires --decision"
+  [ -n "$auto_last_review" ] || fail "--advance requires --last-review"
+  [ -n "$auto_next_action" ] || fail "--advance requires --next-action"
+  [ -n "$auto_stop_condition" ] || fail "--advance requires --stop-condition"
+
+  backup="$run_dir/$(basename "$loop_file").backup"
+  cp "$loop_file" "$backup"
+  tmp_a="$run_dir/loop-state-update-a.md"
+  tmp_b="$run_dir/loop-state-update-b.md"
+
+  update_loop_state_field "$loop_file" "$tmp_a" "Last Codex run" "${auto_last_run:-None}"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Last review" "$auto_last_review"
+  update_loop_state_field "$tmp_b" "$tmp_a" "Decision" "$auto_decision"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Current primary need" "${auto_next_primary_need:-None}"
+  update_loop_state_field "$tmp_b" "$tmp_a" "Current request" "${auto_next_request:-None}"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Current backlog item" "${auto_next_backlog:-None}"
+  update_loop_state_field "$tmp_b" "$tmp_a" "Current task" "${auto_next_task:-None}"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Next action" "$auto_next_action"
+  update_loop_state_field "$tmp_b" "$tmp_a" "Stop condition" "$auto_stop_condition"
+  cp "$tmp_a" "$loop_file"
+
+  append_auto_event "$run_dir" "advanced Loop state after explicit decision: $auto_decision"
+  echo "Loop state advanced: $loop_file"
+  echo "Backup: $backup"
+}
+
+command_auto_loop() {
+  loop_file="$1"
+  shift
+  parse_auto_loop_args "$@"
+  verify_workspace "$workspace"
+
+  mkdir -p task-runs
+  run_dir="task-runs/$(date -u +%Y%m%dT%H%M%SZ)-auto-loop"
+  [ ! -e "$run_dir" ] || fail "auto-loop run directory already exists: $run_dir"
+  mkdir -p "$run_dir"
+  append_auto_event "$run_dir" "created auto-loop run"
+
+  if [ -n "$auto_blocker" ]; then
+    {
+      echo "# Auto Loop Blocker"
+      echo
+      echo "- Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      echo "- Blocker: $auto_blocker"
+    } > "$run_dir/errors.md"
+    append_auto_event "$run_dir" "firm blocker recorded"
+  fi
+
+  write_auto_command_preview "$run_dir" "$loop_file"
+  git -C "$workspace" status --short > "$run_dir/latest-evidence.md"
+
+  step=1
+  while [ "$step" -le "$max_steps" ]; do
+    append_auto_event "$run_dir" "checkpoint step $step"
+    if [ -f "$run_dir/stop-request.md" ]; then
+      append_auto_event "$run_dir" "stop request found; stopping"
+      break
+    fi
+    if [ -n "$auto_blocker" ]; then
+      append_auto_event "$run_dir" "blocker present; stopping"
+      break
+    fi
+    if [ "$execute_codex" = "true" ]; then
+      append_auto_event "$run_dir" "Codex execution was explicitly authorized but is left to existing run command safeguards"
+      echo "Codex execution authorization detected. Use command-preview.md to run through the existing guarded command path."
+    fi
+    if [ "$execute_git_flow" = "true" ]; then
+      append_auto_event "$run_dir" "controlled Git flow execution was explicitly authorized but no command was run by auto-loop in this dry-run checkpoint"
+      echo "Controlled Git flow execution authorization detected. Use command-preview.md and controlled_git_flow.sh for guarded execution."
+    fi
+    break
+  done
+
+  if [ -z "$auto_decision" ]; then
+    append_auto_event "$run_dir" "no decision provided; creating pending review draft"
+    write_auto_review_draft "$run_dir" "$loop_file"
+    write_auto_loop_state "$run_dir" "$loop_file" "human action required"
+  else
+    append_auto_event "$run_dir" "explicit decision provided: $auto_decision"
+    write_auto_review_draft "$run_dir" "$loop_file"
+    if [ "$auto_advance" = "true" ]; then
+      advance_loop_state "$run_dir" "$loop_file"
+      write_auto_loop_state "$run_dir" "$loop_file" "advanced"
+    else
+      write_auto_loop_state "$run_dir" "$loop_file" "decision recorded; advancement not requested"
+    fi
+  fi
+
+  echo "Auto-loop run directory: $run_dir"
+  echo "Command preview: $run_dir/command-preview.md"
+  [ -f "$run_dir/review-draft.md" ] && echo "Review draft: $run_dir/review-draft.md"
+  echo "No push or merge was performed by auto-loop."
+}
+
+command_auto_loop_status() {
+  run_dir="$1"
+  require_auto_loop_dir "$run_dir"
+  echo "Auto-loop run: $run_dir"
+  if [ -f "$run_dir/auto-loop-state.md" ]; then
+    echo
+    sed -n '1,80p' "$run_dir/auto-loop-state.md"
+  fi
+  echo
+  echo "Latest events:"
+  if [ -f "$run_dir/events.log" ]; then
+    tail -20 "$run_dir/events.log"
+  else
+    echo "None"
+  fi
+  echo
+  echo "Errors:"
+  if [ -f "$run_dir/errors.md" ]; then
+    sed -n '1,80p' "$run_dir/errors.md"
+  else
+    echo "None"
+  fi
+  echo
+  echo "Command preview: $run_dir/command-preview.md"
+  [ -f "$run_dir/review-draft.md" ] && echo "Review draft: $run_dir/review-draft.md"
+  if [ -f "$run_dir/stop-request.md" ]; then
+    echo
+    echo "Stop request:"
+    sed -n '1,40p' "$run_dir/stop-request.md"
+  fi
+  if [ -f "$run_dir/instructions.md" ]; then
+    echo
+    echo "Instructions:"
+    sed -n '1,40p' "$run_dir/instructions.md"
+  fi
+}
+
+command_auto_loop_instruct() {
+  run_dir="$1"
+  shift
+  require_auto_loop_dir "$run_dir"
+  [ "$#" -gt 0 ] || fail "missing instruction text"
+  {
+    echo
+    echo "## $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '%s\n' "$*"
+  } >> "$run_dir/instructions.md"
+  append_auto_event "$run_dir" "instruction appended"
+  echo "Instruction appended: $run_dir/instructions.md"
+}
+
+command_auto_loop_stop() {
+  run_dir="$1"
+  shift
+  require_auto_loop_dir "$run_dir"
+  [ "$#" -gt 0 ] || fail "missing stop reason"
+  {
+    echo
+    echo "## $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '%s\n' "$*"
+  } >> "$run_dir/stop-request.md"
+  append_auto_event "$run_dir" "stop requested"
+  echo "Stop request recorded: $run_dir/stop-request.md"
+}
+
 main() {
   verify_orchestia_repo
 
@@ -932,6 +1468,27 @@ main() {
   if [ "$command_name" = "finalize-review" ]; then
     shift
     command_finalize_review "$@"
+    exit 0
+  fi
+  if [ "$command_name" = "auto-loop-status" ]; then
+    [ "$#" -eq 2 ] || fail "auto-loop-status requires one auto-loop run directory"
+    command_auto_loop_status "$2"
+    exit 0
+  fi
+  if [ "$command_name" = "auto-loop-instruct" ]; then
+    [ "$#" -ge 3 ] || fail "auto-loop-instruct requires an auto-loop run directory and instruction text"
+    shift
+    run_dir="$1"
+    shift
+    command_auto_loop_instruct "$run_dir" "$@"
+    exit 0
+  fi
+  if [ "$command_name" = "auto-loop-stop" ]; then
+    [ "$#" -ge 3 ] || fail "auto-loop-stop requires an auto-loop run directory and stop reason"
+    shift
+    run_dir="$1"
+    shift
+    command_auto_loop_stop "$run_dir" "$@"
     exit 0
   fi
 
@@ -962,6 +1519,9 @@ main() {
       ;;
     git-flow-review-draft)
       command_git_flow_review_draft "$loop_file" "$@"
+      ;;
+    auto-loop)
+      command_auto_loop "$loop_file" "$@"
       ;;
     *)
       usage

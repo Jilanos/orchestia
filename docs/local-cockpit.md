@@ -30,6 +30,7 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 
 - Dashboard: repository path, branch, Git status, latest commit, counts, and warnings.
 - Loops: Loop state files and extracted current task/decision fields.
+- Auto Loop: controlled auto-loop run directories, inferred status, latest event, instructions, stop requests, errors, command previews, and review drafts.
 - Runs: local `task-runs/` directories and readable evidence files.
 - Logics: grouped Logics Markdown records.
 - Reviews: review files and extracted decisions.
@@ -41,6 +42,7 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 - `logics/loop-states/`
 - `logics/reviews/`
 - `task-runs/`
+- `task-runs/*-auto-loop/`
 - selected repository documentation and text files through safe links
 - Git status and recent commits through read-only Git commands
 
@@ -52,6 +54,30 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 - It does not create final reviews.
 - It does not write to Logics.
 - It does not run controlled Git flow commands.
+- It does not advance controlled auto loops.
+
+## Controlled Auto Loop View
+
+The cockpit shows the latest auto-loop run on the dashboard and provides an Auto Loop page for `task-runs/*-auto-loop/` directories.
+
+Each auto-loop detail page shows:
+
+- current loop status
+- Human action required warnings
+- event log tail
+- errors, instructions, and stop requests when present
+- command preview
+- review draft
+- copyable `auto-loop-status`, `auto-loop-instruct`, and `auto-loop-stop` commands
+
+Instructions and stop requests remain CLI-driven in this version:
+
+```bash
+bash scripts/orchestia_loop.sh auto-loop-instruct task-runs/example-auto-loop "Prefer minimal changes."
+bash scripts/orchestia_loop.sh auto-loop-stop task-runs/example-auto-loop "Stop before merge."
+```
+
+The cockpit does not execute those commands from the browser.
 
 ## Safety Boundaries
 
@@ -68,6 +94,7 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 - Parsing is label-based and intentionally simple.
 - There is no authentication layer.
 - There are no write actions or workflow buttons.
+- Auto-loop controls are copyable CLI commands, not browser-executed actions.
 - Large or binary evidence files are skipped.
 
 ## Next Possible Improvements

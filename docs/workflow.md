@@ -64,6 +64,28 @@ bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example/review-
 
 Review drafts are local and ignored under `task-runs/`. `finalize-review` requires the decision to be provided explicitly, writes the final record under `logics/reviews/`, and does not update Loop state, push, or merge.
 
+## Controlled Auto Loop
+
+`orchestia_loop.sh` also supports a controlled auto-loop checkpoint:
+
+```bash
+bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/orchestia-samples/todo-cli --max-steps 1
+```
+
+The controlled auto loop is dry-run by default. It creates `task-runs/<timestamp>-auto-loop/`, writes command previews and evidence, reads human instructions from `instructions.md`, honors `stop-request.md`, and creates a pending review draft when no decision is supplied.
+
+Execution requires explicit authorization with `--execute-codex`, `--execute-git-flow`, or `--execute-all`. Review decisions are never invented; a decision must be supplied as `--decision accept`, `--decision revise`, `--decision split`, or `--decision reject`. Loop state advancement is separate and requires `--advance`, an explicit decision, `--last-review`, `--next-action`, `--stop-condition`, and a Loop state file under `logics/loop-states/`.
+
+Humans still control stop requests, additional instructions, next primary need selection when ambiguous, blocker declaration, execution flags, and controlled Git push or merge execution.
+
+Supporting commands:
+
+```bash
+bash scripts/orchestia_loop.sh auto-loop-status task-runs/example-auto-loop
+bash scripts/orchestia_loop.sh auto-loop-instruct task-runs/example-auto-loop "Prefer minimal changes."
+bash scripts/orchestia_loop.sh auto-loop-stop task-runs/example-auto-loop "Stop before merge."
+```
+
 ## Local Cockpit
 
 The local cockpit is `scripts/orchestia_ui.py`, a read-only HTML interface for inspecting repository state, Loop state, `task-runs/`, Logics records, reviews, and debug status:
@@ -72,7 +94,7 @@ The local cockpit is `scripts/orchestia_ui.py`, a read-only HTML interface for i
 python3 scripts/orchestia_ui.py
 ```
 
-Open `http://127.0.0.1:8765`. In this version the cockpit does not execute Codex, push, merge, update Loop state, create reviews, or write to Logics. Execution remains through the CLI scripts.
+Open `http://127.0.0.1:8765`. In this version the cockpit does not execute Codex, push, merge, update Loop state, create reviews, or write to Logics. It shows auto-loop runs, human action required, command previews, instructions, stop requests, and review drafts. Execution remains through the CLI scripts.
 
 ## Controlled Git Flow
 

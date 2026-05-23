@@ -84,6 +84,37 @@ Stop conditions:
 - firm blocker reached
 - human stop requested
 
+## Controlled Auto Loop Control Files
+
+Controlled auto loop runs are local evidence checkpoints created under:
+
+```text
+task-runs/<timestamp>-auto-loop/
+```
+
+The run directory may contain:
+
+- `auto-loop-state.md`: current checkpoint summary and human action status.
+- `instructions.md`: human instructions that can be appended between loop steps.
+- `stop-request.md`: human stop request checked at safe checkpoints.
+- `events.log`: timestamped event trail.
+- `latest-evidence.md`: latest lightweight workspace evidence.
+- `review-draft.md`: draft review with pending decision unless an explicit decision was provided.
+- `command-preview.md`: copyable commands for the next step.
+- `errors.md`: blocker or error notes.
+
+Auto-loop decisions remain human-owned. If no decision is provided, the decision is `pending`, a draft is created, and Loop state is not advanced.
+
+Loop state advancement is allowed only when all of these are true:
+
+- `--advance` is provided.
+- `--decision` is one of `accept`, `revise`, `split`, or `reject`.
+- `--last-review`, `--next-action`, and `--stop-condition` are provided.
+- The target Loop state file is under `logics/loop-states/`.
+- A backup is written under the auto-loop run directory.
+
+Human action is required when a decision is pending, a stop request exists, a blocker is declared, the next primary need is ambiguous, or required advancement fields are missing.
+
 ## Firm Blocker Criteria
 
 A firm blocker prevents safe progress until a human resolves it or changes scope.

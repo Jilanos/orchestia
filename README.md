@@ -153,13 +153,24 @@ bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example/review-
 
 `finalize-review` requires an explicit decision and writes only to `logics/reviews/`. It does not update Loop state, push, or merge.
 
+Run a controlled auto-loop checkpoint in dry-run mode:
+
+```bash
+bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --max-steps 1
+bash scripts/orchestia_loop.sh auto-loop-status task-runs/example-auto-loop
+bash scripts/orchestia_loop.sh auto-loop-instruct task-runs/example-auto-loop "Prefer minimal changes."
+bash scripts/orchestia_loop.sh auto-loop-stop task-runs/example-auto-loop "Stop before merge."
+```
+
+`auto-loop` creates evidence under `task-runs/`, previews commands, supports instruction and stop files, and can advance Loop state only with an explicit decision plus `--advance` and required fields. Execution still requires explicit flags such as `--execute-codex`, `--execute-git-flow`, or `--execute-all`.
+
 Start the local cockpit:
 
 ```bash
 python3 scripts/orchestia_ui.py
 ```
 
-Open `http://127.0.0.1:8765` to inspect Loop state, task-runs, Logics records, reviews, and debug status. The local cockpit is read-only.
+Open `http://127.0.0.1:8765` to inspect Loop state, auto-loop runs, task-runs, Logics records, reviews, and debug status. The local cockpit is read-only and includes an auto-loop view with status, human action required, and copyable commands.
 
 Inspect or dry-run controlled Git flow automation:
 
