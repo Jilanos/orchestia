@@ -36,6 +36,8 @@ Auto-loop Codex execution has also been validated on the sample todo CLI project
 
 The full controlled chain has been validated on the dedicated sample repository: auto-loop evidence was finalized into a Logics review, the sample feature branch was pushed through controlled Git flow, the branch was merged into `integration`, and a full-chain review was finalized.
 
+v0.2-alpha release readiness is complete and recorded in [v0.2-alpha Release](v0.2-alpha-release.md). This alpha is not production-ready and remains human-supervised.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
