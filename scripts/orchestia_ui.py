@@ -263,17 +263,49 @@ def latest_event(run_dir: Path) -> str:
 
 def auto_loop_status(run_dir: Path) -> str:
     if (run_dir / "stop-request.md").exists():
-        return "human action required: stop requested"
+        return "stopped"
     if (run_dir / "errors.md").exists():
-        return "human action required: errors"
+        text = optional_text(run_dir / "errors.md").lower()
+        if "codex exited" in text:
+            return "codex_failed"
+        if "test command failed" in text:
+            return "tests_failed"
+        if "blocker" in text:
+            return "blocked"
+        return "error"
+    if (run_dir / "loop-state-update.md").exists():
+        return "advanced"
+    if (run_dir / "codex-exit-code.txt").exists():
+        code = optional_text(run_dir / "codex-exit-code.txt").strip()
+        if code == "0":
+            return "waiting_for_decision"
+        return "codex_failed"
     state = optional_text(run_dir / "auto-loop-state.md")
     draft = optional_text(run_dir / "review-draft.md")
     combined = f"{state}\n{draft}".lower()
+    if "codex_completed" in combined:
+        return "codex_completed"
     if "human action required" in combined:
-        return "human action required"
+        return "waiting_for_decision"
     if "decision: pending" in combined or "\npending\n" in combined:
-        return "human action required: pending decision"
-    return "available"
+        return "waiting_for_decision"
+    if "ready_for_advance" in combined:
+        return "ready_for_advance"
+    return "dry_run_ready"
+
+
+def auto_loop_field(run_dir: Path, labels: list[str]) -> str:
+    return field_value(optional_text(run_dir / "auto-loop-state.md"), labels)
+
+
+def auto_loop_file_value(run_dir: Path, filename: str) -> str:
+    value = optional_text(run_dir / filename).strip()
+    return value if value else "not run"
+
+
+def human_action_required_for_auto_loop(run_dir: Path) -> bool:
+    status = auto_loop_status(run_dir)
+    return status in {"waiting_for_decision", "codex_failed", "tests_failed", "stopped", "blocked", "error"}
 
 
 def page(title: str, body: str) -> bytes:
@@ -392,15 +424,19 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
         ]
         auto_runs = auto_loop_dirs(repo)
         latest_auto = auto_runs[0] if auto_runs else None
-        if latest_auto and "human action required" in auto_loop_status(latest_auto):
+        if latest_auto and human_action_required_for_auto_loop(latest_auto):
             warnings.append(f"Human action required in latest auto-loop run: {latest_auto.name}")
         latest_auto_html = "<p>No auto-loop runs found.</p>"
         if latest_auto:
             latest_rel = rel(repo, latest_auto)
+            codex_executed = "yes" if (latest_auto / "codex-exit-code.txt").exists() else "no"
             latest_auto_html = (
                 f'<p><strong>Latest auto-loop:</strong> '
                 f'<a href="/auto-loop-run?path={quote(latest_rel)}">{esc(latest_auto.name)}</a></p>'
                 f'<p><strong>Status:</strong> {esc(auto_loop_status(latest_auto))}</p>'
+                f'<p><strong>Codex executed:</strong> {esc(codex_executed)}</p>'
+                f'<p><strong>Codex exit code:</strong> {esc(auto_loop_file_value(latest_auto, "codex-exit-code.txt"))}</p>'
+                f'<p><strong>Test exit code:</strong> {esc(auto_loop_file_value(latest_auto, "test-exit-code.txt"))}</p>'
                 f'<p><strong>Latest event:</strong> {esc(latest_event(latest_auto))}</p>'
             )
         warning_html = "".join(f'<div class="warn">{esc(item)}</div>' for item in warnings) or '<div class="ok">No dashboard warnings.</div>'
@@ -494,20 +530,24 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
         rows = []
         for path in auto_loop_dirs(self.repo):
             path_rel = rel(self.repo, path)
+            task = auto_loop_field(path, ["current task"])
+            decision_value = auto_loop_field(path, ["decision"])
+            human_action = "yes" if human_action_required_for_auto_loop(path) else "no"
             rows.append(
                 "<tr>"
                 f'<td><a href="/auto-loop-run?path={quote(path_rel)}">{esc(path.name)}</a></td>'
                 f"<td>{esc(auto_loop_status(path))}</td>"
-                f"<td>{esc(latest_event(path))}</td>"
-                f"<td>{'yes' if (path / 'instructions.md').exists() else 'no'}</td>"
-                f"<td>{'yes' if (path / 'stop-request.md').exists() else 'no'}</td>"
-                f"<td>{'yes' if (path / 'errors.md').exists() else 'no'}</td>"
+                f"<td>{esc(auto_loop_file_value(path, 'codex-exit-code.txt'))}</td>"
+                f"<td>{esc(auto_loop_file_value(path, 'test-exit-code.txt'))}</td>"
+                f"<td>{esc(task)}</td>"
+                f"<td>{esc(decision_value)}</td>"
+                f"<td>{esc(human_action)}</td>"
                 "</tr>"
             )
-        table = "".join(rows) or '<tr><td colspan="6">No auto-loop runs found.</td></tr>'
+        table = "".join(rows) or '<tr><td colspan="7">No auto-loop runs found.</td></tr>'
         body = f"""
 <section><h2>Auto-loop runs</h2>
-<table><thead><tr><th>Run</th><th>Status</th><th>Latest event</th><th>Instructions</th><th>Stop</th><th>Errors</th></tr></thead><tbody>{table}</tbody></table>
+<table><thead><tr><th>Run</th><th>Status</th><th>Codex exit</th><th>Test exit</th><th>Active task</th><th>Decision</th><th>Human action required</th></tr></thead><tbody>{table}</tbody></table>
 </section>
 """
         return page("Auto Loop", body)
@@ -524,10 +564,12 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
             return page("Auto-loop blocked", '<section><div class="warn">Only task-runs/*-auto-loop directories are shown here.</div></section>')
 
         status = auto_loop_status(path)
-        action = '<div class="warn">Human action required.</div>' if "human action required" in status else '<div class="ok">No immediate human action detected.</div>'
+        action = '<div class="warn">Human action required.</div>' if human_action_required_for_auto_loop(path) else '<div class="ok">No immediate human action detected.</div>'
         status_cmd = f"bash scripts/orchestia_loop.sh auto-loop-status {path_rel}"
         instruct_cmd = f'bash scripts/orchestia_loop.sh auto-loop-instruct {path_rel} "Add human instruction here."'
         stop_cmd = f'bash scripts/orchestia_loop.sh auto-loop-stop {path_rel} "Stop reason here."'
+        finalize_cmd = 'bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example-auto-loop/review-draft.md --review-id REVIEW-XXXX --review-title "Auto-loop review" --reviewed-task TASK-XXXX --decision accept'
+        advance_cmd = 'bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-XXXX.md --workspace ~/ai-workspaces/example --max-steps 1 --decision accept --advance --last-review logics/reviews/REVIEW-XXXX.md --next-action "continue" --stop-condition "pending next step"'
 
         def section(name: str, filename: str, lines: int = 40) -> str:
             target = path / filename
@@ -541,18 +583,34 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 <section><h2>{esc(path.name)}</h2>
 {action}
 <p><strong>Status:</strong> {esc(status)}</p>
+<p><strong>Mode:</strong> {esc(auto_loop_field(path, ['mode']))}</p>
+<p><strong>Active task:</strong> {esc(auto_loop_field(path, ['current task']))}</p>
+<p><strong>Prepared prompt:</strong> {esc(auto_loop_field(path, ['prepared prompt path', 'prepared codex prompt']))}</p>
+<p><strong>Codex executed:</strong> {esc(auto_loop_field(path, ['codex executed']))}</p>
+<p><strong>Codex exit code:</strong> {esc(auto_loop_file_value(path, 'codex-exit-code.txt'))}</p>
+<p><strong>Test exit code:</strong> {esc(auto_loop_file_value(path, 'test-exit-code.txt'))}</p>
+<p><strong>Decision:</strong> {esc(auto_loop_field(path, ['decision']))}</p>
+<p><strong>Next action:</strong> {esc(auto_loop_field(path, ['next action']))}</p>
+<p><strong>Stop condition:</strong> {esc(auto_loop_field(path, ['stop condition']))}</p>
 <p><strong>Latest event:</strong> {esc(latest_event(path))}</p>
 <p>{route_link('/auto-loop', 'Back to auto-loop runs')}</p>
 </section>
 <section><h2>Copyable CLI commands</h2>
 <pre>{esc(status_cmd)}
 {esc(instruct_cmd)}
-{esc(stop_cmd)}</pre>
+{esc(stop_cmd)}
+{esc(finalize_cmd)}
+{esc(advance_cmd)}</pre>
 <p class="muted">The cockpit does not execute these commands or modify Loop state.</p>
 </section>
 {section('Auto-loop state', 'auto-loop-state.md')}
 {section('Events tail', 'events.log')}
 {section('Errors', 'errors.md')}
+{section('Codex stdout', 'codex-stdout.txt')}
+{section('Codex stderr', 'codex-stderr.txt')}
+{section('Workspace diff stat after', 'workspace-diff-stat-after.txt')}
+{section('Test stdout', 'test-stdout.txt')}
+{section('Test stderr', 'test-stderr.txt')}
 {section('Instructions', 'instructions.md')}
 {section('Stop request', 'stop-request.md')}
 {section('Command preview', 'command-preview.md')}

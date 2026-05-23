@@ -28,6 +28,8 @@ The first local cockpit has been introduced as `scripts/orchestia_ui.py`. It pro
 
 Controlled auto loop mode has been introduced in `scripts/orchestia_loop.sh`. It creates auto-loop evidence under `task-runs/`, previews commands, supports human instructions and stop requests, requires explicit execution flags, requires explicit decisions, and advances Loop state only when the required human-provided fields are present.
 
+Codex execution in controlled auto-loop mode has been introduced behind explicit `--execute-codex` or `--execute-all` flags. The loop now uses `codex exec`, captures execution and test evidence, and still requires human-owned decisions and explicit advancement fields.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

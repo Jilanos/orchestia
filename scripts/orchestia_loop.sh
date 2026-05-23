@@ -114,6 +114,20 @@ resolve_from_loop_dir() {
   esac
 }
 
+resolve_prompt_from_repo() {
+  maybe_path="$1"
+  [ -n "$maybe_path" ] || return 0
+
+  case "$maybe_path" in
+    /*)
+      printf '%s\n' "$maybe_path"
+      ;;
+    *)
+      printf '%s/%s\n' "$PWD" "$maybe_path"
+      ;;
+  esac
+}
+
 current_primary_need() { field_value "Current primary need" "$1"; }
 current_request() { field_value "Current request" "$1"; }
 current_backlog_item() { field_value "Current backlog item" "$1"; }
@@ -1106,7 +1120,8 @@ write_auto_command_preview() {
     printf 'bash scripts/orchestia_loop.sh next %q\n' "$loop_file"
     printf 'bash scripts/orchestia_loop.sh run %q --workspace %q\n' "$loop_file" "$workspace"
     if [ -n "$prompt_target" ]; then
-      printf 'bash scripts/orchestia_loop.sh run %q --workspace %q --execute\n' "$loop_file" "$workspace"
+      printf 'bash scripts/orchestia_loop.sh auto-loop %q --workspace %q --max-steps 1 --execute-codex\n' "$loop_file" "$workspace"
+      printf 'cd %q && codex exec - < %q\n' "$workspace" "$prompt_target"
     fi
     echo '```'
     echo
@@ -1137,6 +1152,138 @@ write_auto_command_preview() {
   } > "$run_dir/command-preview.md"
 }
 
+write_auto_error() {
+  run_dir="$1"
+  message="$2"
+  if [ ! -f "$run_dir/errors.md" ]; then
+    {
+      echo "# Auto Loop Errors"
+      echo
+    } > "$run_dir/errors.md"
+  fi
+  {
+    echo "## $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    printf '%s\n' "$message"
+    echo
+  } >> "$run_dir/errors.md"
+  append_auto_event "$run_dir" "error: $message"
+}
+
+auto_status_from_files() {
+  run_dir="$1"
+  if [ -f "$run_dir/stop-request.md" ]; then
+    echo "stopped"
+  elif [ -n "$auto_blocker" ]; then
+    echo "blocked"
+  elif [ -f "$run_dir/codex-exit-code.txt" ] && [ "$(cat "$run_dir/codex-exit-code.txt")" != "0" ]; then
+    echo "codex_failed"
+  elif [ -f "$run_dir/test-exit-code.txt" ] && [ "$(cat "$run_dir/test-exit-code.txt")" != "0" ]; then
+    echo "tests_failed"
+  elif [ -f "$run_dir/errors.md" ]; then
+    echo "error"
+  elif [ "$auto_advance" = "true" ] && [ -n "$auto_decision" ]; then
+    echo "advanced"
+  elif [ -n "$auto_decision" ]; then
+    echo "ready_for_advance"
+  elif [ -f "$run_dir/codex-exit-code.txt" ]; then
+    echo "waiting_for_decision"
+  elif [ "$execute_codex" = "true" ]; then
+    echo "codex_completed"
+  else
+    echo "dry_run_ready"
+  fi
+}
+
+prepare_codex_prompt() {
+  run_dir="$1"
+  loop_file="$2"
+  prompt_value="$(prepared_prompt "$loop_file")"
+  prompt_target="$(link_target_or_value "$prompt_value")"
+  if [ -z "$prompt_target" ]; then
+    write_auto_error "$run_dir" "No prepared Codex prompt found in Loop state."
+    return 1
+  fi
+
+  prompt_path="$(resolve_prompt_from_repo "$prompt_target")"
+  if [ ! -f "$prompt_path" ]; then
+    write_auto_error "$run_dir" "Prepared Codex prompt not found: $prompt_path"
+    return 1
+  fi
+
+  printf '%s\n' "$prompt_path" > "$run_dir/prepared-prompt-path.txt"
+  {
+    cat "$prompt_path"
+    if [ -f "$run_dir/instructions.md" ]; then
+      echo
+      echo "## Additional human instructions"
+      echo
+      cat "$run_dir/instructions.md"
+    fi
+  } > "$run_dir/codex-prompt.md"
+  return 0
+}
+
+run_post_codex_test() {
+  run_dir="$1"
+  [ -n "$test_command" ] || return 0
+
+  printf '%s\n' "$test_command" > "$run_dir/test-command.txt"
+  append_auto_event "$run_dir" "running test command"
+  set +e
+  (cd "$workspace" && sh -c "$test_command") > "$run_dir/test-stdout.txt" 2> "$run_dir/test-stderr.txt"
+  test_exit_code=$?
+  set -e
+  printf '%s\n' "$test_exit_code" > "$run_dir/test-exit-code.txt"
+  if [ "$test_exit_code" -ne 0 ]; then
+    write_auto_error "$run_dir" "Test command failed with exit code $test_exit_code."
+    return 1
+  fi
+  append_auto_event "$run_dir" "test command completed successfully"
+  return 0
+}
+
+execute_codex_prompt() {
+  run_dir="$1"
+  loop_file="$2"
+
+  command -v codex >/dev/null 2>&1 || {
+    write_auto_error "$run_dir" "codex command not found."
+    return 1
+  }
+  codex exec --help >/dev/null 2>&1 || {
+    write_auto_error "$run_dir" "codex exec is not available."
+    return 1
+  }
+  git -C "$workspace" status --short > "$run_dir/workspace-status-before.txt"
+  if [ -s "$run_dir/workspace-status-before.txt" ]; then
+    write_auto_error "$run_dir" "Workspace Git status is not clean before Codex execution."
+    return 1
+  fi
+  prepare_codex_prompt "$run_dir" "$loop_file" || return 1
+
+  codex_prompt_abs="$PWD/$run_dir/codex-prompt.md"
+  printf 'cd %q && codex exec - < %q\n' "$workspace" "$codex_prompt_abs" > "$run_dir/codex-command.txt"
+  append_auto_event "$run_dir" "codex_running"
+  set +e
+  (cd "$workspace" && codex exec - < "$codex_prompt_abs") > "$run_dir/codex-stdout.txt" 2> "$run_dir/codex-stderr.txt"
+  codex_exit_code=$?
+  set -e
+  printf '%s\n' "$codex_exit_code" > "$run_dir/codex-exit-code.txt"
+  git -C "$workspace" status --short > "$run_dir/workspace-status-after.txt"
+  git -C "$workspace" diff --stat > "$run_dir/workspace-diff-stat-after.txt"
+  git -C "$workspace" log --oneline --max-count=5 > "$run_dir/workspace-log-after.txt"
+
+  if [ "$codex_exit_code" -ne 0 ]; then
+    write_auto_error "$run_dir" "Codex exited with code $codex_exit_code."
+    append_auto_event "$run_dir" "codex_failed"
+    return 1
+  fi
+  append_auto_event "$run_dir" "codex_completed"
+  run_post_codex_test "$run_dir" || return 1
+  return 0
+}
+
 write_auto_review_draft() {
   run_dir="$1"
   loop_file="$2"
@@ -1144,6 +1291,10 @@ write_auto_review_draft() {
   workspace_branch="$(git -C "$workspace" branch --show-current || true)"
   latest_commit="$(git -C "$workspace" log --oneline --max-count=1 || true)"
   workspace_status="$(git -C "$workspace" status --short || true)"
+  prompt_path="$(cat "$run_dir/prepared-prompt-path.txt" 2>/dev/null || true)"
+  codex_command="$(cat "$run_dir/codex-command.txt" 2>/dev/null || true)"
+  codex_exit_code="$(cat "$run_dir/codex-exit-code.txt" 2>/dev/null || echo "not run")"
+  test_exit_code="$(cat "$run_dir/test-exit-code.txt" 2>/dev/null || echo "not run")"
 
   {
     echo "# Auto Loop Review Draft"
@@ -1153,7 +1304,11 @@ write_auto_review_draft() {
     echo "- Workspace: $workspace"
     echo "- Current primary need: $(current_primary_need "$loop_file")"
     echo "- Current task: $(current_task "$loop_file")"
-    echo "- Prepared Codex prompt: $(prepared_prompt "$loop_file")"
+    echo "- Prepared Codex prompt: ${prompt_path:-$(prepared_prompt "$loop_file")}"
+    echo "- Codex command: ${codex_command:-not run}"
+    echo "- Codex exit code: $codex_exit_code"
+    echo "- Test command: ${test_command:-not provided}"
+    echo "- Test exit code: $test_exit_code"
     echo "- Workspace branch: ${workspace_branch:-unknown}"
     echo "- Latest workspace commit: ${latest_commit:-None}"
     echo
@@ -1167,6 +1322,46 @@ write_auto_review_draft() {
       echo "(clean)"
     fi
     echo
+    echo "## Workspace Status Before"
+    echo
+    if [ -f "$run_dir/workspace-status-before.txt" ]; then
+      echo '```text'
+      sed -n '1,120p' "$run_dir/workspace-status-before.txt"
+      echo '```'
+    else
+      echo "Not captured."
+    fi
+    echo
+    echo "## Workspace Status After"
+    echo
+    if [ -f "$run_dir/workspace-status-after.txt" ]; then
+      echo '```text'
+      sed -n '1,120p' "$run_dir/workspace-status-after.txt"
+      echo '```'
+    else
+      echo "Not captured."
+    fi
+    echo
+    echo "## Diff Stat After"
+    echo
+    if [ -f "$run_dir/workspace-diff-stat-after.txt" ]; then
+      echo '```text'
+      sed -n '1,120p' "$run_dir/workspace-diff-stat-after.txt"
+      echo '```'
+    else
+      echo "Not captured."
+    fi
+    echo
+    echo "## Codex Output Summary"
+    echo
+    if [ -f "$run_dir/codex-stdout.txt" ]; then
+      echo "- Stdout: $run_dir/codex-stdout.txt"
+      echo "- Stderr: $run_dir/codex-stderr.txt"
+      echo "- Exit code: $codex_exit_code"
+    else
+      echo "- Codex was not executed."
+    fi
+    echo
     echo "## Inputs Reviewed"
     echo
     echo "- Loop state file."
@@ -1177,12 +1372,23 @@ write_auto_review_draft() {
     echo
     echo "- Repository context verified."
     echo "- Workspace path and Git repository verified."
-    echo "- No execution flags were required for dry-run mode."
+    if [ -f "$run_dir/codex-exit-code.txt" ]; then
+      echo "- Codex execution through codex exec captured stdout, stderr, exit code, workspace status, diff stat, and recent log."
+    else
+      echo "- Dry-run command preview only; Codex was not executed."
+    fi
+    if [ -f "$run_dir/test-exit-code.txt" ]; then
+      echo "- Test command captured with exit code $test_exit_code."
+    fi
     echo
     echo "## Findings"
     echo
     if loop_is_complete "$loop_file"; then
       echo "- No executable task is pending for this Loop state."
+    elif [ -f "$run_dir/codex-exit-code.txt" ] && [ "$codex_exit_code" = "0" ]; then
+      echo "- Codex execution completed successfully and is pending human review."
+    elif [ -f "$run_dir/codex-exit-code.txt" ]; then
+      echo "- Codex execution failed and requires human review."
     else
       echo "- Current task remains pending human review or execution."
     fi
@@ -1215,11 +1421,17 @@ write_auto_loop_state() {
   run_dir="$1"
   loop_file="$2"
   status_text="$3"
+  codex_executed="no"
+  [ -f "$run_dir/codex-exit-code.txt" ] && codex_executed="yes"
+  codex_exit_code="$(cat "$run_dir/codex-exit-code.txt" 2>/dev/null || echo "not run")"
+  test_exit_code="$(cat "$run_dir/test-exit-code.txt" 2>/dev/null || echo "not run")"
+  prompt_path="$(cat "$run_dir/prepared-prompt-path.txt" 2>/dev/null || true)"
   {
     echo "# Auto Loop State"
     echo
     echo "- Generated timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "- Status: $status_text"
+    echo "- Mode: $([ "$execute_codex" = "true" ] && echo "execute-codex" || echo "dry-run")"
     echo "- Loop state: $loop_file"
     echo "- Workspace: $workspace"
     echo "- Max steps: $max_steps"
@@ -1228,6 +1440,9 @@ write_auto_loop_state() {
     echo "- Execute all authorized: $execute_all"
     echo "- Decision: ${auto_decision:-pending}"
     echo "- Blocker: ${auto_blocker:-None}"
+    echo "- Codex executed: $codex_executed"
+    echo "- Codex exit code: $codex_exit_code"
+    echo "- Test exit code: $test_exit_code"
     echo
     echo "## Current Loop Summary"
     echo
@@ -1236,6 +1451,7 @@ write_auto_loop_state() {
     echo "- Current backlog item: $(current_backlog_item "$loop_file")"
     echo "- Current task: $(current_task "$loop_file")"
     echo "- Prepared Codex prompt: $(prepared_prompt "$loop_file")"
+    echo "- Prepared prompt path: ${prompt_path:-None}"
     echo "- Last Codex run: $(field_value "Last Codex run" "$loop_file")"
     echo "- Last review: $(field_value "Last review" "$loop_file")"
     echo "- Next action: $(next_action "$loop_file")"
@@ -1250,6 +1466,8 @@ write_auto_loop_state() {
       echo "Firm blocker recorded. Human resolution is required."
     elif [ -f "$run_dir/stop-request.md" ]; then
       echo "Stop request exists. The loop must stop at this checkpoint."
+    elif [ -f "$run_dir/errors.md" ]; then
+      echo "Errors were recorded. Human review is required before continuing."
     elif [ -z "$auto_decision" ]; then
       echo "Decision is pending. Human action required before Loop state advancement."
     else
@@ -1296,6 +1514,15 @@ advance_loop_state() {
   [ -n "$auto_last_review" ] || fail "--advance requires --last-review"
   [ -n "$auto_next_action" ] || fail "--advance requires --next-action"
   [ -n "$auto_stop_condition" ] || fail "--advance requires --stop-condition"
+  if [ -z "$auto_last_run" ]; then
+    auto_last_run="$(git -C "$workspace" log --oneline --max-count=1 || true)"
+    [ -n "$auto_last_run" ] || fail "--advance requires --last-run or a readable workspace latest commit"
+  fi
+  if ! loop_is_complete "$loop_file"; then
+    if [ -z "$auto_next_primary_need" ] || [ -z "$auto_next_request" ] || [ -z "$auto_next_backlog" ] || [ -z "$auto_next_task" ]; then
+      fail "--advance requires --next-primary-need, --next-request, --next-backlog, and --next-task unless the Loop state is terminal"
+    fi
+  fi
 
   backup="$run_dir/$(basename "$loop_file").backup"
   cp "$loop_file" "$backup"
@@ -1312,6 +1539,22 @@ advance_loop_state() {
   update_loop_state_field "$tmp_a" "$tmp_b" "Next action" "$auto_next_action"
   update_loop_state_field "$tmp_b" "$tmp_a" "Stop condition" "$auto_stop_condition"
   cp "$tmp_a" "$loop_file"
+
+  {
+    echo "# Loop State Update"
+    echo
+    echo "- Updated: $loop_file"
+    echo "- Backup: $backup"
+    echo "- Last Codex run: $auto_last_run"
+    echo "- Last review: $auto_last_review"
+    echo "- Decision: $auto_decision"
+    echo "- Current primary need: ${auto_next_primary_need:-None}"
+    echo "- Current request: ${auto_next_request:-None}"
+    echo "- Current backlog item: ${auto_next_backlog:-None}"
+    echo "- Current task: ${auto_next_task:-None}"
+    echo "- Next action: $auto_next_action"
+    echo "- Stop condition: $auto_stop_condition"
+  } > "$run_dir/loop-state-update.md"
 
   append_auto_event "$run_dir" "advanced Loop state after explicit decision: $auto_decision"
   echo "Loop state advanced: $loop_file"
@@ -1342,6 +1585,8 @@ command_auto_loop() {
 
   write_auto_command_preview "$run_dir" "$loop_file"
   git -C "$workspace" status --short > "$run_dir/latest-evidence.md"
+  prepare_codex_prompt "$run_dir" "$loop_file" || true
+  execution_failed=false
 
   step=1
   while [ "$step" -le "$max_steps" ]; do
@@ -1355,8 +1600,10 @@ command_auto_loop() {
       break
     fi
     if [ "$execute_codex" = "true" ]; then
-      append_auto_event "$run_dir" "Codex execution was explicitly authorized but is left to existing run command safeguards"
-      echo "Codex execution authorization detected. Use command-preview.md to run through the existing guarded command path."
+      if ! execute_codex_prompt "$run_dir" "$loop_file"; then
+        execution_failed=true
+        break
+      fi
     fi
     if [ "$execute_git_flow" = "true" ]; then
       append_auto_event "$run_dir" "controlled Git flow execution was explicitly authorized but no command was run by auto-loop in this dry-run checkpoint"
@@ -1368,15 +1615,18 @@ command_auto_loop() {
   if [ -z "$auto_decision" ]; then
     append_auto_event "$run_dir" "no decision provided; creating pending review draft"
     write_auto_review_draft "$run_dir" "$loop_file"
-    write_auto_loop_state "$run_dir" "$loop_file" "human action required"
+    write_auto_loop_state "$run_dir" "$loop_file" "$(auto_status_from_files "$run_dir")"
   else
     append_auto_event "$run_dir" "explicit decision provided: $auto_decision"
     write_auto_review_draft "$run_dir" "$loop_file"
-    if [ "$auto_advance" = "true" ]; then
+    if [ "$execution_failed" = "true" ]; then
+      append_auto_event "$run_dir" "execution failed; Loop state advancement skipped"
+      write_auto_loop_state "$run_dir" "$loop_file" "$(auto_status_from_files "$run_dir")"
+    elif [ "$auto_advance" = "true" ]; then
       advance_loop_state "$run_dir" "$loop_file"
-      write_auto_loop_state "$run_dir" "$loop_file" "advanced"
+      write_auto_loop_state "$run_dir" "$loop_file" "$(auto_status_from_files "$run_dir")"
     else
-      write_auto_loop_state "$run_dir" "$loop_file" "decision recorded; advancement not requested"
+      write_auto_loop_state "$run_dir" "$loop_file" "ready_for_advance"
     fi
   fi
 

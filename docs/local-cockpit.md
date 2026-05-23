@@ -64,8 +64,11 @@ Each auto-loop detail page shows:
 
 - current loop status
 - Human action required warnings
+- Codex execution status and exit code
+- test command exit code when present
 - event log tail
 - errors, instructions, and stop requests when present
+- links and previews for `codex-stdout.txt`, `codex-stderr.txt`, workspace diff stat, and test stdout/stderr
 - command preview
 - review draft
 - copyable `auto-loop-status`, `auto-loop-instruct`, and `auto-loop-stop` commands
@@ -78,6 +81,18 @@ bash scripts/orchestia_loop.sh auto-loop-stop task-runs/example-auto-loop "Stop 
 ```
 
 The cockpit does not execute those commands from the browser.
+
+After an executable auto-loop run, inspect:
+
+- `codex-stdout.txt`
+- `codex-stderr.txt`
+- `codex-exit-code.txt`
+- `workspace-status-before.txt`
+- `workspace-status-after.txt`
+- `workspace-diff-stat-after.txt`
+- `test-stdout.txt` and `test-stderr.txt` when a test command was supplied
+
+Human action is required when the run is waiting for a decision, Codex failed, tests failed, a stop request exists, a blocker was recorded, or Loop state advancement needs explicit fields.
 
 ## Safety Boundaries
 

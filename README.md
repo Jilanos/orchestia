@@ -164,6 +164,14 @@ bash scripts/orchestia_loop.sh auto-loop-stop task-runs/example-auto-loop "Stop 
 
 `auto-loop` creates evidence under `task-runs/`, previews commands, supports instruction and stop files, and can advance Loop state only with an explicit decision plus `--advance` and required fields. Execution still requires explicit flags such as `--execute-codex`, `--execute-git-flow`, or `--execute-all`.
 
+Execute the active prepared Codex prompt non-interactively only when explicitly authorized:
+
+```bash
+bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --max-steps 1 --execute-codex --test "python3 -m unittest discover -s tests"
+```
+
+Executable auto-loop mode uses `codex exec` from the target workspace, captures stdout, stderr, exit code, workspace status, diff stat, recent commits, and optional test output under `task-runs/`. It still does not decide, push, merge, commit, or advance Loop state unless the required explicit decision and advancement arguments are supplied.
+
 Start the local cockpit:
 
 ```bash
