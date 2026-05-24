@@ -53,3 +53,30 @@ Use this manual validation checklist before considering an Orchestia MVP v0.1 ta
 - [ ] Next risks are identified.
 - [ ] MVP v0.1 tag can be considered only after this validation checklist is green.
 - [ ] Tagging, pushing, or publishing is explicitly authorized by a human in a separate task.
+
+## v0.2-alpha Negative-path Validation
+
+Run the reusable negative-path suite:
+
+```bash
+bash scripts/validate_negative_paths.sh
+```
+
+Before considering a v0.2-alpha follow-up release, verify:
+
+- [ ] Missing prepared prompts are refused without Codex execution.
+- [ ] Auto-loop dry-run mode does not modify workspaces.
+- [ ] Dirty workspaces block Codex execution and controlled push.
+- [ ] Invalid decisions are refused.
+- [ ] `finalize-review` refuses drafts outside `task-runs/`.
+- [ ] `finalize-review` refuses invalid decisions.
+- [ ] Controlled auto-push refuses protected branches without override.
+- [ ] Failed tests block controlled auto-push.
+- [ ] Controlled auto-merge refuses protected targets without override.
+- [ ] Failed tests block controlled auto-merge.
+- [ ] Merge conflicts stop controlled auto-merge without pushing unresolved state.
+- [ ] Missing Git-flow evidence is handled safely without final review creation.
+- [ ] Missing `--execute` leaves push and merge commands in dry-run mode.
+- [ ] The suite uses only disposable resources under `task-runs/`.
+- [ ] No GitHub remotes are used by the suite.
+- [ ] The sample todo CLI project is not modified by the suite.

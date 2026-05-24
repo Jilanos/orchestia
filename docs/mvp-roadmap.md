@@ -38,6 +38,8 @@ The full controlled chain has been validated on the dedicated sample repository:
 
 v0.2-alpha release readiness is complete and recorded in [v0.2-alpha Release](v0.2-alpha-release.md). This alpha is not production-ready and remains human-supervised.
 
+The v0.2-alpha negative-path validation suite has been introduced as `scripts/validate_negative_paths.sh`. It validated missing prompts, dry-runs, dirty workspaces, invalid decisions, protected branches, failed tests, merge conflicts, missing evidence, and missing `--execute` guardrails with disposable local repositories under `task-runs/`.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
