@@ -40,6 +40,8 @@ v0.2-alpha release readiness is complete and recorded in [v0.2-alpha Release](v0
 
 The v0.2-alpha negative-path validation suite has been introduced as `scripts/validate_negative_paths.sh`. It validated missing prompts, dry-runs, dirty workspaces, invalid decisions, protected branches, failed tests, merge conflicts, missing evidence, and missing `--execute` guardrails with disposable local repositories under `task-runs/`.
 
+Real mini project validation has started with `job-offer-analyzer`, a local Python standard-library CLI for manually provided job descriptions. The foundation is registered as [IN-0002 Job Offer Analyzer](../logics/initial-needs/IN-0002-job-offer-analyzer.md), with Loop state [LS-0002](../logics/loop-states/LS-0002-job-offer-analyzer.md) advancing to parsing work.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
