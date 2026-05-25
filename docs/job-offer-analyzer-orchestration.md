@@ -16,9 +16,12 @@ The project builds a local job offer analyzer for descriptions manually copied b
 
 - Local project repository initialized.
 - Foundation primary need accepted.
-- Local project commit: `6df941b Initialize job offer analyzer`.
+- Parsing primary need accepted.
+- Local project commits:
+  - `6df941b Initialize job offer analyzer`
+  - `22d431b Improve job offer parsing`
 - Current Loop state: [LS-0002 Job Offer Analyzer](../logics/loop-states/LS-0002-job-offer-analyzer.md).
-- Next primary need: [PN-0005 Job Offer Parsing](../logics/primary-needs/PN-0005-job-offer-parsing.md).
+- Next primary need: [PN-0006 Job Offer Scoring](../logics/primary-needs/PN-0006-job-offer-scoring.md).
 
 ## Initial Need
 
@@ -29,7 +32,7 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 ## Primary Need Decomposition
 
 - [PN-0004 Job Offer Analyzer Foundation](../logics/primary-needs/PN-0004-job-offer-analyzer-foundation.md): complete.
-- [PN-0005 Job Offer Parsing](../logics/primary-needs/PN-0005-job-offer-parsing.md): next.
+- [PN-0005 Job Offer Parsing](../logics/primary-needs/PN-0005-job-offer-parsing.md): complete.
 - [PN-0006 Job Offer Scoring](../logics/primary-needs/PN-0006-job-offer-scoring.md): planned.
 - [PN-0007 Job Offer Reporting](../logics/primary-needs/PN-0007-job-offer-reporting.md): planned.
 - [PN-0008 Job Offer Validation Docs](../logics/primary-needs/PN-0008-job-offer-validation-docs.md): planned.
@@ -44,9 +47,19 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 - Verified CLI help and sample analysis.
 - Committed local project foundation.
 
+## Completed Parsing Work
+
+- Prepared [REQ-0006 Job Offer Parsing](../logics/requests/REQ-0006-job-offer-parsing.md), [BL-0008 Job Offer Parsing](../logics/backlog/BL-0008-job-offer-parsing.md), and [TASK-0046 Implement Job Offer Parsing](../logics/tasks/TASK-0046-implement-job-offer-parsing.md).
+- Ran controlled auto-loop evidence capture at `task-runs/20260525T130053Z-auto-loop/`.
+- Executed Codex with `codex exec --sandbox workspace-write` against `/home/pmondou/ai-workspaces/job-offer-analyzer`.
+- Added heuristic parsing for title, company, location, contract type, work mode, seniority, technologies, languages, missions, requirements, red flags, and recommendation.
+- Updated the sample job offer, README, product brief, and smoke tests.
+- Committed local project parsing work as `22d431b Improve job offer parsing`.
+- Finalized [REVIEW-0043 Job Offer Parsing Execution](../logics/reviews/REVIEW-0043-job-offer-parsing-execution.md) with decision `accept`.
+
 ## Next Planned Task
 
-Prepare the parsing request, backlog item, task, and Codex prompt for robust heuristic parsing of manually provided job offer text.
+Prepare the scoring request, backlog item, task, and Codex prompt for deterministic local scoring against user-defined criteria.
 
 ## Constraints And Non-Goals
 
@@ -76,6 +89,8 @@ The project must not:
 
 All input must be manually provided by the user as local text, Markdown, or pasted job descriptions.
 
+The PN-0005 parsing execution preserved this policy. No scraping, browser automation, LinkedIn API, external API, dependency install, package metadata, project remote, project push, or project merge was added.
+
 ## Validation Commands
 
 ```bash
@@ -87,10 +102,11 @@ python3 -m src.job_offer_analyzer analyze examples/job-offer-sample.md
 git diff --check
 ```
 
+The PN-0005 validation also verified that the project has no Git remote and that `src` and `tests` do not contain forbidden implementation imports for scraping or browser automation libraries.
+
 ## Known Risks
 
-- Initial parser is intentionally minimal.
-- Keyword detection is simple substring matching.
-- Seniority detection is heuristic.
+- Parser output is more structured but still heuristic.
+- Keyword, language, and seniority detection can overmatch or miss unusual phrasing.
 - Future scoring and reporting need explicit criteria and tests.
 - Compliance boundaries must remain visible in every future task.

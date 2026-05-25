@@ -42,6 +42,8 @@ The v0.2-alpha negative-path validation suite has been introduced as `scripts/va
 
 Real mini project validation has started with `job-offer-analyzer`, a local Python standard-library CLI for manually provided job descriptions. The foundation is registered as [IN-0002 Job Offer Analyzer](../logics/initial-needs/IN-0002-job-offer-analyzer.md), with Loop state [LS-0002](../logics/loop-states/LS-0002-job-offer-analyzer.md) advancing to parsing work.
 
+The real mini project validation has advanced through job offer parsing using controlled auto-loop execution. `job-offer-analyzer` commit `22d431b Improve job offer parsing` was accepted by REVIEW-0043, and LS-0002 now points to the scoring primary need.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
