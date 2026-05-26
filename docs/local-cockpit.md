@@ -31,6 +31,8 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 - Dashboard: repository path, branch, Git status, latest commit, counts, and warnings.
 - Needs: draft need intakes under `task-runs/` and existing initial needs.
 - New Need: create a draft intake file without writing to Logics.
+- Logics Drafts: generated draft Logics directories under `task-runs/*-logics-draft/`.
+- Logics Draft Detail: summary, manifest, generated draft files, source intake link, and promotion checklist.
 - Loop Dashboard: compact Loop state status, next action, stop condition, and latest run context.
 - Loops: Loop state files and extracted current task/decision fields.
 - Auto Loop: controlled auto-loop run directories, inferred status, latest event, instructions, stop requests, errors, command previews, and review drafts.
@@ -57,10 +59,24 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 The first cockpit action layer writes only safe local files:
 
 - need intake drafts under `task-runs/<timestamp>-need-intake/`
+- Logics draft files under `task-runs/<timestamp>-logics-draft/`
 - autonomous-loop instructions under an existing `task-runs/*-autonomous-loop/`
 - autonomous-loop stop requests under an existing `task-runs/*-autonomous-loop/`
 
 The action layer does not run arbitrary commands. It does not execute Codex, push, merge, mutate Logics records, or modify project workspaces.
+
+## Need Intake To Logics Drafts
+
+The cockpit can convert a need intake draft into draft-only Logics files:
+
+1. Create a need intake from `/needs/new`.
+2. Open the intake detail page from `/needs` or `/need-intake?path=...`.
+3. Use the `Generate Logics drafts` form.
+4. Review the generated draft directory from `/logics-drafts` or `/logics-draft?path=...`.
+
+The generated directory contains `summary.md`, `manifest.json`, `initial_need_draft.md`, `primary_needs_draft.md`, `request_draft.md`, `backlog_draft.md`, `loop_state_draft.md`, `task_prompt_outline.md`, and `promotion_checklist.md`.
+
+This is a draft-only action. It writes only under `task-runs/`, requires a source under `task-runs/*-need-intake/`, and does not promote anything into final `logics/` records. Human review is required before any future manual or guarded promotion.
 
 ## What It Does Not Do
 

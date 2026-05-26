@@ -60,6 +60,8 @@ v0.2-beta release readiness is complete and recorded in [v0.2-beta Release](v0.2
 
 v0.3 is the next goal: cockpit-driven orchestration with explicit human confirmations. The planning baseline is documented in [v0.3 Roadmap](v0.3-roadmap.md) and [Cockpit-Driven Orchestration](cockpit-driven-orchestration.md).
 
+The first v0.3 cockpit-driven action has been introduced: a cockpit need intake can now generate draft-only Logics files under `task-runs/*-logics-draft/` for human review without writing final records into `logics/`.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

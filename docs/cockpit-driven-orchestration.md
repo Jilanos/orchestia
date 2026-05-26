@@ -44,10 +44,25 @@ Define the Orchestia `v0.3` cockpit-driven orchestration model before implementa
 
 1. User submits a need intake form.
 2. Cockpit writes a draft under `task-runs/<timestamp>-need-intake/`.
-3. Cockpit generates draft Logics records under the same task-runs evidence directory.
-4. User reviews generated drafts.
-5. Promotion to final Logics records requires explicit confirmation and collision checks.
-6. Promotion evidence is recorded.
+3. User opens the intake detail page and explicitly requests Logics drafts.
+4. Cockpit validates that the source is a safe `task-runs/*-need-intake/` draft.
+5. Cockpit generates draft-only Logics files under a new `task-runs/<timestamp>-logics-draft/` directory.
+6. User reviews generated drafts, IDs, primary needs, safety boundaries, and task prompt outline.
+7. Promotion to final Logics records remains manual or future work and requires human review, explicit confirmation, and collision checks.
+
+The generated draft set includes:
+
+- `summary.md`
+- `manifest.json`
+- `initial_need_draft.md`
+- `primary_needs_draft.md`
+- `request_draft.md`
+- `backlog_draft.md`
+- `loop_state_draft.md`
+- `task_prompt_outline.md`
+- `promotion_checklist.md`
+
+The draft-only safety model is strict: the cockpit does not write to `logics/`, does not execute Codex, does not run autonomous-loop, does not run shell commands, and does not push or merge. Missing intake fields are kept as `TODO` placeholders rather than guessed into final records.
 
 ## Task Prompt Preparation Flow
 

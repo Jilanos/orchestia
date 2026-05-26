@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import json
 import os
 import re
 from datetime import datetime, timezone
@@ -281,6 +282,17 @@ def need_intake_dirs(repo: Path) -> list[Path]:
     )
 
 
+def logics_draft_dirs(repo: Path) -> list[Path]:
+    root = repo / "task-runs"
+    if not root.exists():
+        return []
+    return sorted(
+        (path for path in root.glob("*-logics-draft") if path.is_dir() and not path.name.startswith(".")),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
 def task_run_dirs(repo: Path, suffix: str | None = None) -> list[Path]:
     root = repo / "task-runs"
     if not root.exists():
@@ -301,12 +313,82 @@ def validate_task_run_dir(repo: Path, rel_path: str, suffix: str) -> Path:
     return path
 
 
+def validate_need_intake_file(repo: Path, rel_path: str) -> Path:
+    path = safe_join(repo, rel_path)
+    if path.exists() and path.is_dir():
+        path = path / "need-intake.md"
+    path_rel = rel(repo, path)
+    allowed, reason = safe_file_allowed(path, repo)
+    if not allowed:
+        raise ValueError(reason)
+    if not path_rel.startswith("task-runs/") or not path_rel.endswith("/need-intake.md"):
+        raise ValueError("only task-runs/*-need-intake/need-intake.md files are allowed")
+    if not path.parent.name.endswith("-need-intake"):
+        raise ValueError("source intake must be under task-runs/*-need-intake/")
+    return path
+
+
+def validate_logics_draft_dir(repo: Path, rel_path: str) -> Path:
+    return validate_task_run_dir(repo, rel_path, "-logics-draft")
+
+
 def optional_text(path: Path, limit: int = 8000) -> str:
     if not path.exists() or not path.is_file():
         return ""
     if path.stat().st_size > limit:
         return read_text_file(path)[:limit] + "\n... truncated ..."
     return read_text_file(path)
+
+
+def markdown_section(text: str, heading: str) -> str:
+    wanted = heading.strip().lower()
+    lines = text.splitlines()
+    collected: list[str] = []
+    in_section = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("## "):
+            current = stripped.lstrip("#").strip().lower()
+            if in_section and current != wanted:
+                break
+            in_section = current == wanted
+            continue
+        if in_section:
+            collected.append(line)
+    return "\n".join(collected).strip()
+
+
+def need_intake_fields(text: str) -> dict[str, str]:
+    fields = {
+        "title": markdown_section(text, "Title") or "TODO: title",
+        "description": markdown_section(text, "Description") or "TODO: describe the need",
+        "constraints": markdown_section(text, "Constraints") or "TODO: list constraints",
+        "non_goals": markdown_section(text, "Non-Goals") or "TODO: list non-goals",
+        "preferred_project_path": markdown_section(text, "Preferred Project Path") or "TODO: project path",
+        "notes": markdown_section(text, "Notes") or "TODO: notes",
+    }
+    return fields
+
+
+def slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug[:80] or "draft-project"
+
+
+def bullet_lines(text: str) -> str:
+    values = [line.strip("-* ").strip() for line in text.splitlines() if line.strip()]
+    if not values:
+        return "- TODO"
+    return "\n".join(f"- {value}" for value in values)
+
+
+def draft_primary_needs(title: str) -> list[tuple[str, str]]:
+    base = title if title and not title.startswith("TODO") else "Project"
+    return [
+        (f"{base} foundation", "Create the local project foundation, boundaries, and first validation checks."),
+        (f"{base} core workflow", "Implement the first useful local workflow with transparent behavior."),
+        (f"{base} validation and documentation", "Document usage, limitations, tests, and safety boundaries."),
+    ]
 
 
 def tail_lines(text: str, count: int = 40) -> str:
@@ -460,6 +542,7 @@ def page(title: str, body: str) -> bytes:
         [
             route_link("/", "Dashboard"),
             route_link("/needs", "Needs"),
+            route_link("/logics-drafts", "Logics Drafts"),
             route_link("/loop-dashboard", "Loop Dashboard"),
             route_link("/auto-loop", "Auto Loop"),
             route_link("/autonomous-loop", "Autonomous"),
@@ -518,6 +601,7 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         routes = {
             "/needs/create": self.create_need,
+            "/needs/generate-logics-draft": self.generate_logics_draft,
             "/actions/autonomous-loop-instruct": self.autonomous_loop_instruct_action,
             "/actions/autonomous-loop-stop": self.autonomous_loop_stop_action,
         }
@@ -555,6 +639,8 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
             "/needs": self.needs,
             "/needs/new": self.new_need,
             "/need-intake": lambda: self.need_intake_detail(query),
+            "/logics-drafts": self.logics_drafts,
+            "/logics-draft": lambda: self.logics_draft_detail(query),
             "/loops": self.loops,
             "/loop-dashboard": self.loop_dashboard,
             "/loop": lambda: self.loop_detail(query),
@@ -642,6 +728,295 @@ Review this draft, then create final Logics records through the normal planning 
 </section>
 """
         return page("Need intake created", body)
+
+    def generate_logics_draft(self, data: dict[str, list[str]]) -> bytes:
+        intake_path = validate_need_intake_file(self.repo, first_value(data, "intake_path", 1000))
+        intake_rel = rel(self.repo, intake_path)
+        intake_text = read_text_file(intake_path)
+        fields = need_intake_fields(intake_text)
+        project_slug = first_value(data, "project_slug", 200) or slugify(fields["title"])
+        project_slug = slugify(project_slug)
+        preferred_initial_need_id = first_value(data, "preferred_initial_need_id", 80) or "IN-TODO"
+        notes = first_value(data, "notes", 2000)
+
+        draft_dir = self.repo / "task-runs" / f"{utc_timestamp()}-logics-draft"
+        draft_dir.mkdir(parents=True, exist_ok=False)
+        created_at = utc_iso()
+
+        title = fields["title"]
+        primary_needs = draft_primary_needs(title)
+        primary_need_lines = []
+        for index, (need_title, objective) in enumerate(primary_needs, start=1):
+            primary_need_lines.append(
+                f"""## Draft Primary Need {index}: {need_title}
+
+- Proposed ID: PN-TODO-{index:02d}
+- Objective: {objective}
+- Acceptance criteria:
+  - TODO: define measurable acceptance criteria.
+  - TODO: confirm safety boundaries.
+- Notes: Draft suggestion generated from cockpit need intake.
+"""
+            )
+
+        files: dict[str, str] = {
+            "summary.md": f"""# Logics Draft Summary
+
+## Status
+
+Draft only. These files were generated under `task-runs/` and are not final Logics records.
+
+## Source Intake
+
+`{intake_rel}`
+
+## Title
+
+{title}
+
+## Project Slug
+
+`{project_slug}`
+
+## Generated At
+
+{created_at}
+
+## Operator Notes
+
+{notes or 'None'}
+
+## Recommended Next Steps
+
+1. Review each generated draft.
+2. Check IDs for collisions.
+3. Adjust primary needs and safety boundaries.
+4. Create final Logics records manually or through a future reviewed promotion action.
+5. Prepare the first task prompt only after human review.
+""",
+            "initial_need_draft.md": f"""# Initial Need Draft: {title}
+
+## Draft Notice
+
+This is a draft only. Do not treat it as a final Logics record until reviewed and promoted by a human.
+
+## Metadata
+
+- Proposed ID: {preferred_initial_need_id}
+- Status: draft
+- Source intake: `{intake_rel}`
+- Project slug: `{project_slug}`
+
+## Problem Statement
+
+{fields['description']}
+
+## Success Criteria
+
+- TODO: define user-visible completion criteria.
+- TODO: define validation commands.
+- TODO: confirm the expected final project or documentation state.
+
+## Constraints
+
+{bullet_lines(fields['constraints'])}
+
+## Non-Goals
+
+{bullet_lines(fields['non_goals'])}
+
+## Proposed Primary Needs
+
+{chr(10).join(f'- {need_title}' for need_title, _ in primary_needs)}
+
+## Status
+
+- Status: draft
+""",
+            "primary_needs_draft.md": f"""# Primary Needs Draft: {title}
+
+## Draft Notice
+
+These are draft suggestions generated from a cockpit need intake. Review and edit before promotion.
+
+{chr(10).join(primary_need_lines)}
+""",
+            "request_draft.md": f"""# Request Draft: {title} Foundation
+
+## Draft Notice
+
+Draft only. This file is not a final Logics request.
+
+## Metadata
+
+- Proposed ID: REQ-TODO
+- Status: draft
+- Source initial need draft: `initial_need_draft.md`
+
+## Problem Statement
+
+Create the first reviewed implementation slice for: {title}
+
+## Success Criteria
+
+- TODO: define the first deliverable.
+- TODO: define validation checks.
+- TODO: confirm safety boundaries.
+
+## Constraints
+
+{bullet_lines(fields['constraints'])}
+
+## Non-Goals
+
+{bullet_lines(fields['non_goals'])}
+
+## Proposed Backlog Item
+
+- `backlog_draft.md`
+""",
+            "backlog_draft.md": f"""# Backlog Draft: {title} Foundation
+
+## Draft Notice
+
+Draft only. This file is not a final Logics backlog item.
+
+## Metadata
+
+- Proposed ID: BL-TODO
+- Status: draft
+- Related request draft: `request_draft.md`
+
+## Delivery Slice
+
+Prepare the first bounded slice for `{project_slug}`.
+
+## Acceptance Criteria
+
+- TODO: scope is bounded and reviewable.
+- TODO: validation commands are explicit.
+- TODO: no out-of-scope actions are needed.
+
+## Risks
+
+- Scope may be too broad until a human edits the draft.
+- Safety boundaries may need project-specific refinement.
+
+## Status
+
+- Status: draft
+""",
+            "loop_state_draft.md": f"""# Loop State Draft: {title}
+
+## Draft Notice
+
+Draft only. This file is not a final Loop state.
+
+## Loop State
+
+- Current initial need: {preferred_initial_need_id}
+- Current primary need: PN-TODO-01
+- Current request: REQ-TODO
+- Current backlog item: BL-TODO
+- Current task: TASK-TODO
+- Prepared Codex prompt: TODO
+- Decision: pending
+- Next action: review and promote Logics drafts, then prepare first task prompt
+- Stop condition: continue until all primary needs are complete or a firm blocker is documented
+
+## Source
+
+- Source intake: `{intake_rel}`
+- Preferred project path: `{fields['preferred_project_path']}`
+""",
+            "task_prompt_outline.md": f"""# Task Prompt Outline: {title}
+
+## Draft Notice
+
+Draft only. Review before converting into a Codex prompt.
+
+## Objective
+
+TODO: implement the first bounded slice for {title}.
+
+## Context
+
+{fields['description']}
+
+## Authorized Scope
+
+TODO: list exact files and directories.
+
+## Out Of Scope
+
+{bullet_lines(fields['non_goals'])}
+
+## Expected Steps
+
+1. Inspect the existing project context.
+2. Implement the smallest useful slice.
+3. Update focused tests or documentation.
+4. Run validation commands.
+
+## Validation Commands
+
+TODO: add project-specific validation commands.
+
+## Acceptance Criteria
+
+- TODO: define measurable acceptance criteria.
+- Generated changes stay within authorized scope.
+- Safety boundaries are preserved.
+
+## Watch Points
+
+- Do not expand scope during execution.
+- Stop on missing credentials, ambiguous next need, or unsafe required action.
+- Do not read secrets or hidden files.
+""",
+            "promotion_checklist.md": """# Promotion Checklist
+
+## Draft Notice
+
+Use this checklist before creating final Logics records.
+
+- Verify IDs do not collide.
+- Review generated primary needs.
+- Review safety boundaries.
+- Review project path and authorized scope.
+- Create final Logics records manually or through a future promotion action.
+- Prepare first task prompt.
+- Do not promote without human review.
+- Do not execute Codex from this draft generation step.
+- Do not push or merge from this draft generation step.
+""",
+        }
+
+        for filename, content in files.items():
+            (draft_dir / filename).write_text(content, encoding="utf-8")
+
+        generated_files = sorted(files)
+        manifest = {
+            "source_intake": intake_rel,
+            "created_at": created_at,
+            "generated_files": generated_files,
+            "title": title,
+            "project_slug": project_slug,
+            "status": "draft",
+            "promoted": False,
+        }
+        (draft_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+        draft_rel = rel(self.repo, draft_dir)
+        body = f"""
+<section><h2>Logics drafts generated</h2>
+<div class="ok">Draft files were written under task-runs only. No final Logics records were created.</div>
+<p><strong>Draft directory:</strong> <a href="/logics-draft?path={quote(draft_rel)}">{esc(draft_rel)}</a></p>
+<p><strong>Source intake:</strong> <a href="/need-intake?path={quote(intake_rel)}">{esc(intake_rel)}</a></p>
+<p class="muted">Review these drafts before any future promotion step.</p>
+</section>
+"""
+        return page("Logics drafts generated", body)
 
     def autonomous_loop_instruct_action(self, data: dict[str, list[str]]) -> bytes:
         run_rel = first_value(data, "run_path", 1000)
@@ -767,6 +1142,7 @@ Review this draft, then create final Logics records through the normal planning 
   <h2>Main sections</h2>
   <ul>
     <li>{route_link('/needs', 'Needs')}</li>
+    <li>{route_link('/logics-drafts', 'Logics drafts')}</li>
     <li>{route_link('/loop-dashboard', 'Loop Dashboard')}</li>
     <li>{route_link('/loops', 'Loop states')}</li>
     <li>{route_link('/auto-loop', 'Auto-loop runs')}</li>
@@ -812,6 +1188,7 @@ Review this draft, then create final Logics records through the normal planning 
         body = f"""
 <section><h2>Needs</h2>
 <p>{route_link('/needs/new', 'Create draft need intake')}</p>
+<p>{route_link('/logics-drafts', 'View generated Logics drafts')}</p>
 </section>
 <section><h2>Draft need intakes</h2>
 <table><thead><tr><th>Title</th><th>Directory</th><th>Type</th></tr></thead><tbody>{"".join(intake_rows) or '<tr><td colspan="3">No intake drafts found.</td></tr>'}</tbody></table>
@@ -848,16 +1225,120 @@ Review this draft, then create final Logics records through the normal planning 
         if not allowed:
             return page("Need intake blocked", f'<section><div class="warn">{esc(reason)}</div></section>')
         text = read_text_file(path)
+        fields = need_intake_fields(text)
         body = f"""
 <section><h2>{esc(path_rel)}</h2>
 <p>{route_link('/needs', 'Back to needs')}</p>
 <pre>{esc(text)}</pre>
 </section>
+<section><h2>Extracted fields</h2>
+<p><strong>Title:</strong> {esc(fields['title'])}</p>
+<p><strong>Description:</strong></p><pre>{esc(fields['description'])}</pre>
+<p><strong>Constraints:</strong></p><pre>{esc(fields['constraints'])}</pre>
+<p><strong>Non-goals:</strong></p><pre>{esc(fields['non_goals'])}</pre>
+<p><strong>Preferred project path:</strong> {esc(fields['preferred_project_path'])}</p>
+</section>
+<section><h2>Generate Logics drafts</h2>
+<div class="warn">Drafts are written under task-runs only. This action does not create final Logics records, execute Codex, run autonomous-loop, push, or merge.</div>
+<form method="post" action="/needs/generate-logics-draft">
+  <input type="hidden" name="intake_path" value="{esc(path_rel)}">
+  <p><label>Project slug<br><input name="project_slug" value="{esc(slugify(fields['title']))}" style="width:100%;max-width:520px"></label></p>
+  <p><label>Preferred initial need ID<br><input name="preferred_initial_need_id" placeholder="IN-XXXX" style="width:100%;max-width:320px"></label></p>
+  <p><label>Notes<br><textarea name="notes" rows="3" style="width:100%;max-width:900px"></textarea></label></p>
+  <p><button type="submit">Generate Logics drafts</button></p>
+</form>
+</section>
 <section><h2>Suggested next step</h2>
-<pre>{esc('Create final Logics records from this draft only after human review.')}</pre>
+<pre>{esc('Generate draft Logics files, review them, then promote manually or through a future reviewed promotion action.')}</pre>
 </section>
 """
         return page("Need Intake", body)
+
+    def logics_drafts(self) -> bytes:
+        rows = []
+        for path in logics_draft_dirs(self.repo):
+            manifest_path = path / "manifest.json"
+            manifest: dict[str, object] = {}
+            if manifest_path.exists() and safe_file_allowed(manifest_path, self.repo)[0]:
+                try:
+                    manifest = json.loads(read_text_file(manifest_path))
+                except json.JSONDecodeError:
+                    manifest = {}
+            path_rel = rel(self.repo, path)
+            generated = manifest.get("generated_files", [])
+            if isinstance(generated, list):
+                files = ", ".join(str(item) for item in generated)
+            else:
+                files = "unknown"
+            source = str(manifest.get("source_intake", "None"))
+            source_link = esc(source)
+            if source != "None":
+                source_link = f'<a href="/need-intake?path={quote(source)}">{esc(source)}</a>'
+            rows.append(
+                "<tr>"
+                f'<td><a href="/logics-draft?path={quote(path_rel)}">{esc(path.name)}</a></td>'
+                f"<td>{esc(str(manifest.get('title', 'Unknown')))}</td>"
+                f"<td>{esc(str(manifest.get('created_at', 'Unknown')))}</td>"
+                f"<td>{source_link}</td>"
+                f"<td>{esc(files)}</td>"
+                "</tr>"
+            )
+        body = f"""
+<section><h2>Logics Drafts</h2>
+<p class="muted">Generated Logics drafts live under task-runs/*-logics-draft/. They are not final Logics records.</p>
+<table><thead><tr><th>Directory</th><th>Title</th><th>Created</th><th>Source intake</th><th>Draft files</th></tr></thead><tbody>{"".join(rows) or '<tr><td colspan="5">No Logics draft directories found.</td></tr>'}</tbody></table>
+</section>
+"""
+        return page("Logics Drafts", body)
+
+    def logics_draft_detail(self, query: dict[str, list[str]]) -> bytes:
+        try:
+            path = validate_logics_draft_dir(self.repo, query.get("path", [""])[0])
+        except ValueError as exc:
+            return page("Logics draft blocked", f'<section><div class="warn">{esc(exc)}</div></section>')
+        manifest_path = path / "manifest.json"
+        manifest_text = optional_text(manifest_path)
+        source = "None"
+        if manifest_text:
+            try:
+                manifest = json.loads(manifest_text)
+                source = str(manifest.get("source_intake", "None"))
+            except json.JSONDecodeError:
+                source = "None"
+        source_html = esc(source)
+        if source != "None":
+            source_html = f'<a href="/need-intake?path={quote(source)}">{esc(source)}</a>'
+        file_items = []
+        for child in sorted(path.iterdir()):
+            if child.name.startswith("."):
+                continue
+            if child.is_file():
+                allowed, reason = safe_file_allowed(child, self.repo)
+                if allowed:
+                    file_items.append(f"<li>{file_link(self.repo, child)}</li>")
+                else:
+                    file_items.append(f"<li>{esc(child.name)} skipped: {esc(reason)}</li>")
+        summary = optional_text(path / "summary.md")
+        body = f"""
+<section><h2>{esc(path.name)}</h2>
+<div class="warn">These are drafts only. They are not final Logics records and were not written under logics/.</div>
+<p><strong>Source intake:</strong> {source_html}</p>
+<p>{route_link('/logics-drafts', 'Back to Logics drafts')}</p>
+</section>
+<section><h2>Summary</h2><pre>{esc(summary or 'summary.md not present')}</pre></section>
+<section><h2>Manifest</h2><pre>{esc(manifest_text or 'manifest.json not present')}</pre></section>
+<section><h2>Draft files</h2><ul>{"".join(file_items) or '<li>No readable files.</li>'}</ul></section>
+<section><h2>Recommended next steps</h2>
+<ol>
+  <li>Review every draft file.</li>
+  <li>Verify proposed IDs do not collide.</li>
+  <li>Adjust safety boundaries and primary needs.</li>
+  <li>Create final Logics records manually or through a future reviewed promotion action.</li>
+  <li>Do not promote without human review.</li>
+</ol>
+</section>
+"""
+        return page("Logics Draft", body)
 
     def loop_dashboard(self) -> bytes:
         rows = []
