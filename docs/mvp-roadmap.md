@@ -50,6 +50,8 @@ Real mini project autonomous-loop validation has run against `job-offer-analyzer
 
 Real mini project autonomous-loop validation has run against `job-offer-analyzer` for reporting. Commit `dc6792f Add job offer reporting` was accepted, and LS-0002 now points to the validation/docs primary need.
 
+Real mini project autonomous-loop validation has completed the local `job-offer-analyzer` MVP. Commit `96efb67 Add validation and documentation` was accepted, PN-0008 is complete, and IN-0002 is complete for local file-based usage.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

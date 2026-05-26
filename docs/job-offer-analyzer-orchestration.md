@@ -9,7 +9,7 @@ The project builds a local job offer analyzer for descriptions manually copied b
 ## Project Path
 
 ```text
-/home/pmondou/ai-workspaces/job-offer-analyzer
+/home/paulm/ai-workspaces/job-offer-analyzer
 ```
 
 ## Current Status
@@ -19,13 +19,17 @@ The project builds a local job offer analyzer for descriptions manually copied b
 - Parsing primary need accepted.
 - Scoring primary need accepted.
 - Reporting primary need accepted.
+- Validation/docs primary need accepted.
+- Initial need complete.
 - Local project commits:
   - `6df941b Initialize job offer analyzer`
   - `22d431b Improve job offer parsing`
   - `c37d597 Add job offer scoring`
   - `dc6792f Add job offer reporting`
+  - `96efb67 Add validation and documentation`
 - Current Loop state: [LS-0002 Job Offer Analyzer](../logics/loop-states/LS-0002-job-offer-analyzer.md).
-- Next primary need: [PN-0008 Job Offer Validation Docs](../logics/primary-needs/PN-0008-job-offer-validation-docs.md).
+- Completion review: [REVIEW-0050 Job Offer Analyzer Completion](../logics/reviews/REVIEW-0050-job-offer-analyzer-completion.md).
+- Next recommended task: controlled publication or cockpit-driven usage.
 
 ## Initial Need
 
@@ -39,7 +43,7 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 - [PN-0005 Job Offer Parsing](../logics/primary-needs/PN-0005-job-offer-parsing.md): complete.
 - [PN-0006 Job Offer Scoring](../logics/primary-needs/PN-0006-job-offer-scoring.md): complete.
 - [PN-0007 Job Offer Reporting](../logics/primary-needs/PN-0007-job-offer-reporting.md): complete.
-- [PN-0008 Job Offer Validation Docs](../logics/primary-needs/PN-0008-job-offer-validation-docs.md): planned.
+- [PN-0008 Job Offer Validation Docs](../logics/primary-needs/PN-0008-job-offer-validation-docs.md): complete.
 
 ## Completed Foundation Work
 
@@ -88,9 +92,24 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 - Finalized [REVIEW-0048 Autonomous Loop Job Offer Reporting](../logics/reviews/REVIEW-0048-autonomous-loop-job-offer-reporting.md) with decision `accept`.
 - The autonomous-loop stopped after the accepted reporting cycle because the next validation/docs prompt is not prepared yet; LS-0002 was advanced after review.
 
+## Completed Validation Docs Work
+
+- Prepared [REQ-0009 Job Offer Validation Docs](../logics/requests/REQ-0009-job-offer-validation-docs.md), [BL-0011 Job Offer Validation Docs](../logics/backlog/BL-0011-job-offer-validation-docs.md), and [TASK-0054 Implement Job Offer Validation Docs](../logics/tasks/TASK-0054-implement-job-offer-validation-docs.md).
+- Ran autonomous-loop evidence capture at `task-runs/20260526T101212Z-autonomous-loop/`.
+- Executed Codex with `codex exec --sandbox workspace-write` against `/home/paulm/ai-workspaces/job-offer-analyzer`.
+- Completed one autonomous cycle with decision `accept`.
+- The run summary recorded `blocked` after acceptance because terminal `Next prepared Codex prompt` was `None`; this is an expected current runner limitation for terminal states.
+- Added README validation and manual-input guidance.
+- Added `docs/validation.md` and `docs/limitations.md`.
+- Updated product brief and smoke tests.
+- Committed local project validation/docs work as `96efb67 Add validation and documentation`.
+- Finalized [REVIEW-0049 Job Offer Validation Docs Execution](../logics/reviews/REVIEW-0049-job-offer-validation-docs-execution.md) with decision `accept`.
+- Finalized [REVIEW-0050 Job Offer Analyzer Completion](../logics/reviews/REVIEW-0050-job-offer-analyzer-completion.md) with decision `accept`.
+- IN-0002 is complete.
+
 ## Next Planned Task
 
-Prepare the validation/docs request, backlog item, task, and Codex prompt.
+Prepare controlled publication or cockpit-driven usage if desired.
 
 ## Constraints And Non-Goals
 
@@ -134,7 +153,17 @@ python3 -m src.job_offer_analyzer report examples/job-offer-sample.md
 git diff --check
 ```
 
-The PN-0005, PN-0006, and PN-0007 validations also verified that the project has no Git remote and that `src` and `tests` do not contain forbidden implementation imports for scraping or browser automation libraries.
+The PN-0005, PN-0006, PN-0007, and PN-0008 validations also verified that the project has no Git remote and that `src` and `tests` do not contain forbidden implementation imports for scraping or browser automation libraries.
+
+## Local MVP Validation Result
+
+- Latest validation/docs autonomous-loop run: `task-runs/20260526T101212Z-autonomous-loop/`.
+- Cycle executed: `cycle-001`.
+- Validation/docs result: accepted.
+- Latest project commit: `96efb67 Add validation and documentation`.
+- Compliance confirmation: no scraping, browser automation, LinkedIn API, external API, AI API, dependency install, project remote, project push, or project merge was added.
+- IN-0002 completion status: complete.
+- Next recommended task: controlled publication or cockpit-driven usage.
 
 ## Known Risks
 
