@@ -58,6 +58,8 @@ v0.2-beta readiness is documented in [v0.2-beta Readiness](v0.2-beta-readiness.m
 
 v0.2-beta release readiness is complete and recorded in [v0.2-beta Release](v0.2-beta-release.md). The beta remains human-supervised and not production-ready.
 
+v0.3 is the next goal: cockpit-driven orchestration with explicit human confirmations. The planning baseline is documented in [v0.3 Roadmap](v0.3-roadmap.md) and [Cockpit-Driven Orchestration](cockpit-driven-orchestration.md).
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

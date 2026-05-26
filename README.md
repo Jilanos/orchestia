@@ -19,6 +19,8 @@ Orchestia is not an autonomous agent framework. It is a documented, human-superv
 
 Current release status: `v0.2-beta` is documented in [v0.2-beta Release](docs/v0.2-beta-release.md). It is not production-ready and remains human-supervised.
 
+Planning for `v0.3` has started in [v0.3 Roadmap](docs/v0.3-roadmap.md). The next direction is cockpit-driven orchestration with explicit human confirmations.
+
 ## Execution Modes
 
 Orchestia policy defines Manual mode, Assisted mode, Auto branch mode, and Controlled auto merge mode. Auto push and auto merge are policy-gated for fresh projects or isolated branches; `main` and `master` stay protected by default.
@@ -227,6 +229,7 @@ WSL is not a strong sandbox. Do not read, print, summarize, or log secrets. Do n
 - [Local cockpit](docs/local-cockpit.md)
 - [Orchestration State Model](docs/orchestration-state-model.md)
 - [MVP roadmap](docs/mvp-roadmap.md)
+- [v0.3 Roadmap](docs/v0.3-roadmap.md)
 - [Sample v0.2 orchestration scenario](docs/sample-v0.2-orchestration-scenario.md)
 - [validation checklist](docs/validation-checklist.md)
 - [Sample end-to-end run](docs/sample-end-to-end-run.md)
