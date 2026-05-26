@@ -31,6 +31,7 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 - Dashboard: repository path, branch, Git status, latest commit, counts, and warnings.
 - Loops: Loop state files and extracted current task/decision fields.
 - Auto Loop: controlled auto-loop run directories, inferred status, latest event, instructions, stop requests, errors, command previews, and review drafts.
+- Autonomous Loop: autonomous local loop run directories, cycle count, latest decision, latest errors, cycle evidence, and human action required status.
 - Runs: local `task-runs/` directories and readable evidence files.
 - Logics: grouped Logics Markdown records.
 - Reviews: review files and extracted decisions.
@@ -95,6 +96,26 @@ After an executable auto-loop run, inspect:
 
 Human action is required when the run is waiting for a decision, Codex failed, tests failed, a stop request exists, a blocker was recorded, or Loop state advancement needs explicit fields.
 
+## Autonomous Loop View
+
+The cockpit shows the latest autonomous-loop run on the dashboard and provides an Autonomous page for `task-runs/*-autonomous-loop/` directories.
+
+Each autonomous-loop detail page shows:
+
+- overall status
+- current or latest cycle
+- max cycles and completed cycles
+- latest decision
+- latest prompt evidence
+- latest Codex and test exit codes
+- latest error
+- human action required state
+- instructions and stop requests when present
+- links to per-cycle evidence files
+- copyable command previews for rerun, instruction, and stop-request creation
+
+The cockpit remains read-only. It does not execute the autonomous loop, write instructions, create stop requests, push, merge, or update Loop state from the browser.
+
 ## Safety Boundaries
 
 - The default bind address is `127.0.0.1`.
@@ -111,6 +132,7 @@ Human action is required when the run is waiting for a decision, Codex failed, t
 - There is no authentication layer.
 - There are no write actions or workflow buttons.
 - Auto-loop controls are copyable CLI commands, not browser-executed actions.
+- Autonomous-loop controls are copyable CLI commands, not browser-executed actions.
 - Large or binary evidence files are skipped.
 
 ## Next Possible Improvements

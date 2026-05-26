@@ -174,13 +174,21 @@ bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-0001-sample-todo-
 
 Executable auto-loop mode uses `codex exec --sandbox workspace-write` from the verified target workspace, captures stdout, stderr, exit code, workspace status, diff stat, recent commits, and optional test output under `task-runs/`. The default remains dry-run, and auto-loop still does not decide, push, merge, commit, or advance Loop state unless the required explicit decision and advancement arguments are supplied.
 
+Run a local autonomous loop over explicit prepared prompts:
+
+```bash
+bash scripts/orchestia_loop.sh autonomous-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --max-cycles 2
+```
+
+`autonomous-loop` is dry-run by default. With `--execute-codex`, `--auto-accept-if-checks-pass`, and `--advance-if-next-ready`, it can run multiple local cycles, capture per-cycle evidence, auto-accept only passing cycles, and advance only when the next state is explicit. It never pushes or merges.
+
 Start the local cockpit:
 
 ```bash
 python3 scripts/orchestia_ui.py
 ```
 
-Open `http://127.0.0.1:8765` to inspect Loop state, auto-loop runs, task-runs, Logics records, reviews, and debug status. The local cockpit is read-only and includes an auto-loop view with status, human action required, and copyable commands.
+Open `http://127.0.0.1:8765` to inspect Loop state, auto-loop runs, autonomous-loop runs, task-runs, Logics records, reviews, and debug status. The local cockpit is read-only and includes auto-loop and autonomous-loop views with status, human action required, cycle evidence, and copyable commands.
 
 Inspect or dry-run controlled Git flow automation:
 

@@ -98,6 +98,20 @@ bash scripts/orchestia_loop.sh auto-loop-instruct task-runs/example-auto-loop "P
 bash scripts/orchestia_loop.sh auto-loop-stop task-runs/example-auto-loop "Stop before merge."
 ```
 
+## Autonomous Local Loop
+
+`orchestia_loop.sh` also supports a second-level autonomous local loop for repeated local cycles:
+
+```bash
+bash scripts/orchestia_loop.sh autonomous-loop logics/loop-states/LS-0002-job-offer-analyzer.md --workspace ~/ai-workspaces/example-project --max-cycles 2
+```
+
+This mode is still dry-run by default. Codex execution requires `--execute-codex` or `--execute-all`. Automatic acceptance requires `--auto-accept-if-checks-pass`; without it, the first cycle stops with a pending decision. Loop state advancement requires `--advance-if-next-ready` and explicit next-state fields in the Loop state.
+
+The autonomous loop can run multiple local cycles, each with its own `cycle-001/`, `cycle-002/`, and evidence files under `task-runs/<timestamp>-autonomous-loop/`. A cycle may be auto-accepted only when Codex exits `0`, tests exit `0`, no secret-like files are touched, and no blocker or stop request exists.
+
+Human control remains required for ambiguous next primary needs, firm blockers, execution flags, and any push or merge. The autonomous loop does not push, merge, rebase, tag, delete branches, or call controlled Git flow execute mode.
+
 ## Local Cockpit
 
 The local cockpit is `scripts/orchestia_ui.py`, a read-only HTML interface for inspecting repository state, Loop state, `task-runs/`, Logics records, reviews, and debug status:
@@ -106,7 +120,7 @@ The local cockpit is `scripts/orchestia_ui.py`, a read-only HTML interface for i
 python3 scripts/orchestia_ui.py
 ```
 
-Open `http://127.0.0.1:8765`. In this version the cockpit does not execute Codex, push, merge, update Loop state, create reviews, or write to Logics. It shows auto-loop runs, human action required, command previews, instructions, stop requests, and review drafts. Execution remains through the CLI scripts.
+Open `http://127.0.0.1:8765`. In this version the cockpit does not execute Codex, push, merge, update Loop state, create reviews, or write to Logics. It shows auto-loop and autonomous-loop runs, human action required, command previews, cycle evidence, instructions, stop requests, and review drafts. Execution remains through the CLI scripts.
 
 ## Controlled Git Flow
 

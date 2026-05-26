@@ -227,6 +227,8 @@ def infer_run_type(path: Path) -> str:
         return "git-flow-review-draft"
     if "auto-loop" in name:
         return "auto-loop"
+    if "autonomous-loop" in name:
+        return "autonomous-loop"
     return "unknown"
 
 
@@ -236,6 +238,17 @@ def auto_loop_dirs(repo: Path) -> list[Path]:
         return []
     return sorted(
         (path for path in root.glob("*-auto-loop") if path.is_dir() and not path.name.startswith(".")),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
+def autonomous_loop_dirs(repo: Path) -> list[Path]:
+    root = repo / "task-runs"
+    if not root.exists():
+        return []
+    return sorted(
+        (path for path in root.glob("*-autonomous-loop") if path.is_dir() and not path.name.startswith(".")),
         key=lambda path: path.name,
         reverse=True,
     )
@@ -308,12 +321,45 @@ def human_action_required_for_auto_loop(run_dir: Path) -> bool:
     return status in {"waiting_for_decision", "codex_failed", "tests_failed", "stopped", "blocked", "error"}
 
 
+def autonomous_loop_status(run_dir: Path) -> str:
+    state = optional_text(run_dir / "autonomous-loop-state.md")
+    value = field_value(state, ["status"])
+    if value != "None":
+        return value
+    if (run_dir / "errors.md").exists():
+        return "error"
+    if (run_dir / "summary.md").exists():
+        return "completed"
+    return "unknown"
+
+
+def autonomous_loop_field(run_dir: Path, labels: list[str]) -> str:
+    return field_value(optional_text(run_dir / "autonomous-loop-state.md"), labels)
+
+
+def autonomous_latest_cycle(run_dir: Path) -> Path | None:
+    cycles = sorted(path for path in run_dir.glob("cycle-*") if path.is_dir())
+    return cycles[-1] if cycles else None
+
+
+def autonomous_cycle_count(run_dir: Path) -> int:
+    return len([path for path in run_dir.glob("cycle-*") if path.is_dir()])
+
+
+def human_action_required_for_autonomous_loop(run_dir: Path) -> bool:
+    value = autonomous_loop_field(run_dir, ["human action required"])
+    if value.lower() in {"yes", "true"}:
+        return True
+    return autonomous_loop_status(run_dir) in {"blocked", "error", "tests_failed", "codex_failed", "waiting_for_decision", "stopped"}
+
+
 def page(title: str, body: str) -> bytes:
     nav = "".join(
         [
             route_link("/", "Dashboard"),
             route_link("/loops", "Loops"),
             route_link("/auto-loop", "Auto Loop"),
+            route_link("/autonomous-loop", "Autonomous"),
             route_link("/runs", "Runs"),
             route_link("/logics", "Logics"),
             route_link("/reviews", "Reviews"),
@@ -375,6 +421,8 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
             "/loop": lambda: self.loop_detail(query),
             "/auto-loop": self.auto_loop,
             "/auto-loop-run": lambda: self.auto_loop_run(query),
+            "/autonomous-loop": self.autonomous_loop,
+            "/autonomous-loop-run": lambda: self.autonomous_loop_run(query),
             "/runs": self.runs,
             "/run": lambda: self.run_detail(query),
             "/file": lambda: self.file_view(query),
@@ -426,6 +474,10 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
         latest_auto = auto_runs[0] if auto_runs else None
         if latest_auto and human_action_required_for_auto_loop(latest_auto):
             warnings.append(f"Human action required in latest auto-loop run: {latest_auto.name}")
+        autonomous_runs = autonomous_loop_dirs(repo)
+        latest_autonomous = autonomous_runs[0] if autonomous_runs else None
+        if latest_autonomous and human_action_required_for_autonomous_loop(latest_autonomous):
+            warnings.append(f"Human action required in latest autonomous-loop run: {latest_autonomous.name}")
         latest_auto_html = "<p>No auto-loop runs found.</p>"
         if latest_auto:
             latest_rel = rel(repo, latest_auto)
@@ -439,6 +491,19 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
                 f'<p><strong>Codex exit code:</strong> {esc(auto_loop_file_value(latest_auto, "codex-exit-code.txt"))}</p>'
                 f'<p><strong>Test exit code:</strong> {esc(auto_loop_file_value(latest_auto, "test-exit-code.txt"))}</p>'
                 f'<p><strong>Latest event:</strong> {esc(latest_event(latest_auto))}</p>'
+            )
+        latest_autonomous_html = "<p>No autonomous-loop runs found.</p>"
+        if latest_autonomous:
+            latest_autonomous_rel = rel(repo, latest_autonomous)
+            latest_cycle = autonomous_latest_cycle(latest_autonomous)
+            latest_autonomous_html = (
+                f'<p><strong>Latest autonomous-loop:</strong> '
+                f'<a href="/autonomous-loop-run?path={quote(latest_autonomous_rel)}">{esc(latest_autonomous.name)}</a></p>'
+                f'<p><strong>Status:</strong> {esc(autonomous_loop_status(latest_autonomous))}</p>'
+                f'<p><strong>Cycles:</strong> {esc(autonomous_loop_field(latest_autonomous, ["cycles completed"]))}</p>'
+                f'<p><strong>Latest cycle:</strong> {esc(latest_cycle.name if latest_cycle else "None")}</p>'
+                f'<p><strong>Latest decision:</strong> {esc(autonomous_loop_field(latest_autonomous, ["latest decision"]))}</p>'
+                f'<p><strong>Human action required:</strong> {esc(autonomous_loop_field(latest_autonomous, ["human action required"]))}</p>'
             )
         warning_html = "".join(f'<div class="warn">{esc(item)}</div>' for item in warnings) or '<div class="ok">No dashboard warnings.</div>'
         card_html = "".join(f'<div class="card"><div class="muted">{esc(label)}</div><div class="metric">{value}</div></div>' for label, value in cards)
@@ -458,10 +523,16 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
   <p>{route_link('/auto-loop', 'View auto-loop runs')}</p>
 </section>
 <section>
+  <h2>Autonomous-loop</h2>
+  {latest_autonomous_html}
+  <p>{route_link('/autonomous-loop', 'View autonomous-loop runs')}</p>
+</section>
+<section>
   <h2>Main sections</h2>
   <ul>
     <li>{route_link('/loops', 'Loop states')}</li>
     <li>{route_link('/auto-loop', 'Auto-loop runs')}</li>
+    <li>{route_link('/autonomous-loop', 'Autonomous-loop runs')}</li>
     <li>{route_link('/runs', 'task-runs reports')}</li>
     <li>{route_link('/logics', 'Logics files')}</li>
     <li>{route_link('/reviews', 'Reviews')}</li>
@@ -619,6 +690,116 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 {section('Review draft', 'review-draft.md')}
 """
         return page("Auto-loop run", body)
+
+    def autonomous_loop(self) -> bytes:
+        rows = []
+        for path in autonomous_loop_dirs(self.repo):
+            path_rel = rel(self.repo, path)
+            latest_cycle = autonomous_latest_cycle(path)
+            latest_error = "None"
+            if (path / "errors.md").exists():
+                latest_error = tail_lines(optional_text(path / "errors.md"), 8)
+            rows.append(
+                "<tr>"
+                f'<td><a href="/autonomous-loop-run?path={quote(path_rel)}">{esc(path.name)}</a></td>'
+                f"<td>{esc(autonomous_loop_status(path))}</td>"
+                f"<td>{esc(autonomous_cycle_count(path))}</td>"
+                f"<td>{esc(latest_cycle.name if latest_cycle else 'None')}</td>"
+                f"<td>{esc(autonomous_loop_field(path, ['latest decision']))}</td>"
+                f"<td>{esc('yes' if human_action_required_for_autonomous_loop(path) else 'no')}</td>"
+                f"<td><pre>{esc(latest_error)}</pre></td>"
+                "</tr>"
+            )
+        table = "".join(rows) or '<tr><td colspan="7">No autonomous-loop runs found.</td></tr>'
+        body = f"""
+<section><h2>Autonomous-loop runs</h2>
+<table><thead><tr><th>Run</th><th>Status</th><th>Cycles</th><th>Latest cycle</th><th>Latest decision</th><th>Human action required</th><th>Latest error</th></tr></thead><tbody>{table}</tbody></table>
+</section>
+"""
+        return page("Autonomous Loop", body)
+
+    def autonomous_loop_run(self, query: dict[str, list[str]]) -> bytes:
+        try:
+            path = safe_join(self.repo, query.get("path", [""])[0])
+        except ValueError as exc:
+            return page("Autonomous-loop blocked", f'<section><div class="warn">{esc(exc)}</div></section>')
+        if not path.exists() or not path.is_dir():
+            return page("Autonomous-loop missing", '<section><h2>Autonomous-loop run not found</h2></section>')
+        path_rel = rel(self.repo, path)
+        if not path_rel.startswith("task-runs/") or not path.name.endswith("-autonomous-loop"):
+            return page("Autonomous-loop blocked", '<section><div class="warn">Only task-runs/*-autonomous-loop directories are shown here.</div></section>')
+
+        latest_cycle = autonomous_latest_cycle(path)
+        latest_prompt = "None"
+        latest_codex = "not run"
+        latest_test = "not run"
+        latest_decision = autonomous_loop_field(path, ["latest decision"])
+        latest_error = optional_text(path / "errors.md")
+        if latest_cycle:
+            latest_prompt = rel(self.repo, latest_cycle / "prompt-used.md") if (latest_cycle / "prompt-used.md").exists() else "None"
+            latest_codex = optional_text(latest_cycle / "codex-exit-code.txt").strip() or "not run"
+            latest_test = optional_text(latest_cycle / "test-exit-code.txt").strip() or "not run"
+            latest_decision = optional_text(latest_cycle / "decision.md").strip() or latest_decision
+
+        action = '<div class="warn">Human action required.</div>' if human_action_required_for_autonomous_loop(path) else '<div class="ok">No immediate human action detected.</div>'
+        rerun_cmd = "bash scripts/orchestia_loop.sh autonomous-loop <loop-state> --workspace <workspace> --max-cycles 1"
+        stop_cmd = f"printf '%s\\n' 'Stop reason' >> {path_rel}/stop-request.md"
+        instruct_cmd = f"printf '%s\\n' 'Instruction text' >> {path_rel}/instructions.md"
+        review_link = "None"
+        if latest_cycle and (latest_cycle / "review-draft.md").exists():
+            review_link = file_link(self.repo, latest_cycle / "review-draft.md", "open latest review draft")
+
+        def section(name: str, target: Path | None, lines: int = 40) -> str:
+            if target is None or not target.exists():
+                return f"<section><h2>{esc(name)}</h2><p class=\"muted\">Not present.</p></section>"
+            if target.is_file():
+                link = file_link(self.repo, target, "open full file")
+                return f"<section><h2>{esc(name)}</h2><p>{link}</p><pre>{esc(tail_lines(optional_text(target), lines))}</pre></section>"
+            links = "".join(
+                f"<li>{file_link(self.repo, child)}</li>"
+                for child in sorted(target.iterdir())
+                if child.is_file() and not child.name.startswith(".") and safe_file_allowed(child, self.repo)[0]
+            )
+            return f"<section><h2>{esc(name)}</h2><ul>{links or '<li>No readable cycle files.</li>'}</ul></section>"
+
+        cycle_links = "".join(
+            f"<li>{esc(cycle.name)}: {route_link('/run?path=' + quote(rel(self.repo, cycle)), 'open files')}</li>"
+            for cycle in sorted(path.glob("cycle-*"))
+            if cycle.is_dir()
+        )
+
+        body = f"""
+<section><h2>{esc(path.name)}</h2>
+{action}
+<p><strong>Status:</strong> {esc(autonomous_loop_status(path))}</p>
+<p><strong>Current cycle:</strong> {esc(latest_cycle.name if latest_cycle else 'None')}</p>
+<p><strong>Max cycles:</strong> {esc(autonomous_loop_field(path, ['max cycles']))}</p>
+<p><strong>Cycles completed:</strong> {esc(autonomous_loop_field(path, ['cycles completed']))}</p>
+<p><strong>Latest decision:</strong> {esc(latest_decision)}</p>
+<p><strong>Latest prompt:</strong> {esc(latest_prompt)}</p>
+<p><strong>Latest Codex exit code:</strong> {esc(latest_codex)}</p>
+<p><strong>Latest test exit code:</strong> {esc(latest_test)}</p>
+<p><strong>Human action required:</strong> {esc(autonomous_loop_field(path, ['human action required']))}</p>
+<p><strong>Latest error:</strong></p><pre>{esc(tail_lines(latest_error, 12) if latest_error else 'None')}</pre>
+<p>{route_link('/autonomous-loop', 'Back to autonomous-loop runs')}</p>
+</section>
+<section><h2>Copyable command previews</h2>
+<pre>{esc(rerun_cmd)}
+{esc(instruct_cmd)}
+{esc(stop_cmd)}</pre>
+<p><strong>Latest review draft:</strong> {review_link}</p>
+<p class="muted">The cockpit does not execute commands, push, merge, or modify Loop state.</p>
+</section>
+<section><h2>Cycles</h2><ul>{cycle_links or '<li>No cycle directories.</li>'}</ul></section>
+{section('Autonomous-loop state', path / 'autonomous-loop-state.md')}
+{section('Summary', path / 'summary.md')}
+{section('Events tail', path / 'events.log')}
+{section('Errors', path / 'errors.md')}
+{section('Instructions', path / 'instructions.md')}
+{section('Stop request', path / 'stop-request.md')}
+{section('Latest cycle files', latest_cycle)}
+"""
+        return page("Autonomous-loop run", body)
 
     def runs(self) -> bytes:
         root = self.repo / "task-runs"

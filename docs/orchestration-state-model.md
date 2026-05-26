@@ -115,6 +115,55 @@ Loop state advancement is allowed only when all of these are true:
 
 Human action is required when a decision is pending, a stop request exists, a blocker is declared, the next primary need is ambiguous, or required advancement fields are missing.
 
+## Autonomous Local Loop State
+
+Autonomous local loop runs are repeated local checkpoints under:
+
+```text
+task-runs/<timestamp>-autonomous-loop/
+```
+
+The run directory contains:
+
+- `autonomous-loop-state.md`: overall run status, latest decision, cycle count, and human action requirement.
+- `summary.md`: concise run result.
+- `events.log`: timestamped event trail.
+- `instructions.md`: optional human instructions appended to each Codex prompt.
+- `stop-request.md`: optional stop request checked before each cycle.
+- `errors.md`: blockers or safe refusal notes.
+- `cycle-001/`, `cycle-002/`, and later cycle directories.
+
+Each cycle directory may contain:
+
+- `loop-state-before.md`
+- `prompt-used.md`
+- `codex-command.txt`
+- `codex-stdout.txt`
+- `codex-stderr.txt`
+- `codex-exit-code.txt`
+- `workspace-status-before.txt`
+- `workspace-status-after.txt`
+- `workspace-diff-stat-after.txt`
+- `workspace-log-after.txt`
+- `test-command.txt`
+- `test-stdout.txt`
+- `test-stderr.txt`
+- `test-exit-code.txt`
+- `review-draft.md`
+- `decision.md`
+- `loop-state-after.md` when advanced
+- `errors.md` when a cycle-level error is recorded
+
+For autonomous advancement, the current Loop state must include explicit next-state fields:
+
+- `Next primary need`
+- `Next request`
+- `Next backlog item`
+- `Next task`
+- `Next prepared Codex prompt`
+
+If any required next-state field is missing, empty, ambiguous, or points to a missing prompt, the autonomous loop stops and records human action required. It must not choose the next primary need by inference.
+
 ## Firm Blocker Criteria
 
 A firm blocker prevents safe progress until a human resolves it or changes scope.

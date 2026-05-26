@@ -13,6 +13,7 @@ usage:
   scripts/orchestia_loop.sh git-flow-review-draft <loop-state> --workspace <path> [--evidence-dir task-runs/<dir>] [--decision accept|revise|split|reject]
   scripts/orchestia_loop.sh finalize-review --draft task-runs/<dir>/<draft.md> --review-id REVIEW-XXXX --review-title "<title>" --reviewed-task TASK-XXXX --decision accept|revise|split|reject
   scripts/orchestia_loop.sh auto-loop <loop-state> --workspace <path> --max-steps <n> [--decision accept|revise|split|reject] [--advance --last-review <path> --next-action "<text>" --stop-condition "<text>"]
+  scripts/orchestia_loop.sh autonomous-loop <loop-state> --workspace <path> --max-cycles <n> [--execute-codex|--execute-all] [--auto-accept-if-checks-pass] [--advance-if-next-ready] [--test "<command>"] [--instruction "<text>"]
   scripts/orchestia_loop.sh auto-loop-status task-runs/<dir>-auto-loop
   scripts/orchestia_loop.sh auto-loop-instruct task-runs/<dir>-auto-loop "<instruction>"
   scripts/orchestia_loop.sh auto-loop-stop task-runs/<dir>-auto-loop "<reason>"
@@ -136,6 +137,11 @@ prepared_prompt() { field_value "Prepared Codex prompt" "$1"; }
 decision() { field_value "Decision" "$1"; }
 next_action() { field_value "Next action" "$1"; }
 stop_condition() { field_value "Stop condition" "$1"; }
+next_primary_need() { field_value "Next primary need" "$1"; }
+next_request() { field_value "Next request" "$1"; }
+next_backlog_item() { field_value "Next backlog item" "$1"; }
+next_task() { field_value "Next task" "$1"; }
+next_prepared_prompt() { field_value "Next prepared Codex prompt" "$1"; }
 
 loop_is_complete() {
   loop_file="$1"
@@ -496,6 +502,88 @@ parse_auto_loop_args() {
     ''|*[!0-9]*) fail "--max-steps must be a positive integer" ;;
   esac
   [ "$max_steps" -gt 0 ] || fail "--max-steps must be greater than zero"
+}
+
+parse_autonomous_loop_args() {
+  workspace=""
+  max_cycles=""
+  execute_codex=false
+  execute_all=false
+  autonomous_auto_accept=false
+  autonomous_advance=false
+  autonomous_stop_on_dirty=false
+  autonomous_blocker=""
+  autonomous_instruction=""
+  autonomous_review_id_prefix=""
+  autonomous_task_id_prefix=""
+  test_command=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --workspace)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --workspace"
+        workspace="$1"
+        ;;
+      --max-cycles)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --max-cycles"
+        max_cycles="$1"
+        ;;
+      --execute-codex)
+        execute_codex=true
+        ;;
+      --execute-all)
+        execute_all=true
+        execute_codex=true
+        ;;
+      --auto-accept-if-checks-pass)
+        autonomous_auto_accept=true
+        ;;
+      --advance-if-next-ready)
+        autonomous_advance=true
+        ;;
+      --stop-on-dirty)
+        autonomous_stop_on_dirty=true
+        ;;
+      --test)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --test"
+        test_command="$1"
+        ;;
+      --blocker)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --blocker"
+        autonomous_blocker="$1"
+        ;;
+      --instruction)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --instruction"
+        autonomous_instruction="$1"
+        ;;
+      --review-id-prefix)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --review-id-prefix"
+        autonomous_review_id_prefix="$1"
+        ;;
+      --task-id-prefix)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --task-id-prefix"
+        autonomous_task_id_prefix="$1"
+        ;;
+      *)
+        fail "unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [ -n "$workspace" ] || fail "missing --workspace"
+  [ -n "$max_cycles" ] || fail "missing --max-cycles"
+  case "$max_cycles" in
+    ''|*[!0-9]*) fail "--max-cycles must be a positive integer" ;;
+  esac
+  [ "$max_cycles" -gt 0 ] || fail "--max-cycles must be greater than zero"
 }
 
 is_protected_branch() {
@@ -1707,6 +1795,439 @@ command_auto_loop_stop() {
   echo "Stop request recorded: $run_dir/stop-request.md"
 }
 
+append_autonomous_event() {
+  run_dir="$1"
+  message="$2"
+  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$message" >> "$run_dir/events.log"
+}
+
+write_autonomous_error() {
+  run_dir="$1"
+  message="$2"
+  if [ ! -f "$run_dir/errors.md" ]; then
+    {
+      echo "# Autonomous Loop Errors"
+      echo
+    } > "$run_dir/errors.md"
+  fi
+  {
+    echo "## $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    printf '%s\n' "$message"
+    echo
+  } >> "$run_dir/errors.md"
+  append_autonomous_event "$run_dir" "error: $message"
+}
+
+autonomous_cycle_dir() {
+  run_dir="$1"
+  cycle="$2"
+  printf '%s/cycle-%03d\n' "$run_dir" "$cycle"
+}
+
+autonomous_secret_like_path() {
+  path="$1"
+  name="$(basename "$path" | tr '[:upper:]' '[:lower:]')"
+  case "$name" in
+    .env|.env.*|hosts.yml|id_rsa|id_dsa|id_ecdsa|id_ed25519|known_hosts) return 0 ;;
+  esac
+  case "$name" in
+    *token*|*secret*|*credential*|*credentials*|*password*|*passwd*|*private_key*) return 0 ;;
+  esac
+  return 1
+}
+
+autonomous_modified_files_ok() {
+  cycle_dir="$1"
+  status_file="$cycle_dir/workspace-status-after.txt"
+  [ -f "$status_file" ] || return 0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    file_path="$(printf '%s\n' "$line" | sed -E 's/^...//; s/ -> /\n/' | tail -1)"
+    if autonomous_secret_like_path "$file_path"; then
+      printf 'Secret-like file was touched: %s\n' "$file_path" > "$cycle_dir/errors.md"
+      return 1
+    fi
+  done < "$status_file"
+  return 0
+}
+
+resolve_autonomous_prompt() {
+  prompt_value="$1"
+  if [ -z "$prompt_value" ] || [ "$prompt_value" = "None" ]; then
+    return 1
+  fi
+  prompt_target="$(link_target_or_value "$prompt_value")"
+  [ -n "$prompt_target" ] || return 1
+  resolve_prompt_from_repo "$prompt_target"
+}
+
+write_autonomous_prompt() {
+  run_dir="$1"
+  cycle_dir="$2"
+  prompt_path="$3"
+  {
+    cat "$prompt_path"
+    if [ -f "$run_dir/instructions.md" ]; then
+      echo
+      echo "## Additional human instructions"
+      echo
+      cat "$run_dir/instructions.md"
+    fi
+  } > "$cycle_dir/prompt-used.md"
+}
+
+autonomous_run_test() {
+  cycle_dir="$1"
+  [ -n "$test_command" ] || return 0
+  printf '%s\n' "$test_command" > "$cycle_dir/test-command.txt"
+  set +e
+  (cd "$workspace" && sh -c "$test_command") > "$cycle_dir/test-stdout.txt" 2> "$cycle_dir/test-stderr.txt"
+  test_exit_code=$?
+  set -e
+  printf '%s\n' "$test_exit_code" > "$cycle_dir/test-exit-code.txt"
+  [ "$test_exit_code" -eq 0 ]
+}
+
+autonomous_write_review_draft() {
+  run_dir="$1"
+  cycle_dir="$2"
+  loop_file="$3"
+  cycle="$4"
+  decision_value="$5"
+  {
+    echo "# Autonomous Loop Review Draft"
+    echo
+    echo "- Generated timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "- Autonomous run: $run_dir"
+    echo "- Cycle: $cycle"
+    echo "- Loop state: $loop_file"
+    echo "- Workspace: $workspace"
+    echo "- Current primary need: $(current_primary_need "$loop_file")"
+    echo "- Current task: $(current_task "$loop_file")"
+    echo "- Prepared Codex prompt: $(prepared_prompt "$loop_file")"
+    echo "- Codex command: $(cat "$cycle_dir/codex-command.txt" 2>/dev/null || echo "not run")"
+    echo "- Codex exit code: $(cat "$cycle_dir/codex-exit-code.txt" 2>/dev/null || echo "not run")"
+    echo "- Test command: ${test_command:-not provided}"
+    echo "- Test exit code: $(cat "$cycle_dir/test-exit-code.txt" 2>/dev/null || echo "not run")"
+    echo
+    echo "## Inputs Reviewed"
+    echo
+    echo "- Loop state before cycle."
+    echo "- Prepared prompt."
+    echo "- Workspace Git evidence."
+    echo "- Codex and test evidence when executed."
+    echo
+    echo "## Checks Performed"
+    echo
+    if [ -f "$cycle_dir/codex-exit-code.txt" ]; then
+      echo "- Codex execution captured through codex exec --sandbox workspace-write."
+    else
+      echo "- Dry-run command preview; Codex was not executed."
+    fi
+    if [ -f "$cycle_dir/test-exit-code.txt" ]; then
+      echo "- Test command captured with exit code $(cat "$cycle_dir/test-exit-code.txt")."
+    fi
+    echo "- Workspace status and diff stat captured."
+    echo
+    echo "## Findings"
+    echo
+    if [ "$decision_value" = "accept" ]; then
+      echo "- Cycle checks passed and auto-accept policy allowed acceptance."
+    elif [ "$decision_value" = "pending" ]; then
+      echo "- Cycle is pending because auto-accept was not enabled or execution was dry-run."
+    else
+      echo "- Cycle did not satisfy acceptance conditions."
+    fi
+    echo
+    echo "## Risks"
+    echo
+    echo "- Autonomous acceptance is local-only and depends on declared checks."
+    echo "- Human selection is still required when next state is missing or ambiguous."
+    echo
+    echo "## Decision"
+    echo
+    echo "$decision_value"
+    echo
+    echo "## Required Follow-Up"
+    echo
+    if [ "$decision_value" = "accept" ]; then
+      echo "- Continue only if next state is explicit and safe."
+    else
+      echo "- Human review required before continuing."
+    fi
+    echo
+    echo "## Next Recommended Task"
+    echo
+    echo "- $(next_action "$loop_file")"
+  } > "$cycle_dir/review-draft.md"
+}
+
+autonomous_advance_loop_state() {
+  run_dir="$1"
+  cycle_dir="$2"
+  loop_file="$3"
+
+  next_primary="$(next_primary_need "$loop_file")"
+  next_req="$(next_request "$loop_file")"
+  next_backlog="$(next_backlog_item "$loop_file")"
+  next_task_value="$(next_task "$loop_file")"
+  next_prompt_value="$(next_prepared_prompt "$loop_file")"
+
+  if [ -z "$next_primary" ] || [ -z "$next_req" ] || [ -z "$next_backlog" ] || [ -z "$next_task_value" ] || [ -z "$next_prompt_value" ]; then
+    write_autonomous_error "$run_dir" "Next state is missing or ambiguous; human selection is required."
+    return 1
+  fi
+  next_prompt_path="$(resolve_autonomous_prompt "$next_prompt_value" || true)"
+  if [ -z "$next_prompt_path" ] || [ ! -f "$next_prompt_path" ]; then
+    write_autonomous_error "$run_dir" "Next prepared prompt is missing: $next_prompt_value"
+    return 1
+  fi
+
+  cp "$loop_file" "$cycle_dir/loop-state-before-advance.md"
+  tmp_a="$cycle_dir/loop-state-update-a.md"
+  tmp_b="$cycle_dir/loop-state-update-b.md"
+  latest_run="$(git -C "$workspace" log --oneline --max-count=1 || true)"
+
+  update_loop_state_field "$loop_file" "$tmp_a" "Last Codex run" "${latest_run:-workspace changes not committed}"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Decision" "accept"
+  update_loop_state_field "$tmp_b" "$tmp_a" "Current primary need" "$next_primary"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Current request" "$next_req"
+  update_loop_state_field "$tmp_b" "$tmp_a" "Current backlog item" "$next_backlog"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Current task" "$next_task_value"
+  update_loop_state_field "$tmp_b" "$tmp_a" "Prepared Codex prompt" "$next_prompt_value"
+  update_loop_state_field "$tmp_a" "$tmp_b" "Next primary need" ""
+  update_loop_state_field "$tmp_b" "$tmp_a" "Next request" ""
+  update_loop_state_field "$tmp_a" "$tmp_b" "Next backlog item" ""
+  update_loop_state_field "$tmp_b" "$tmp_a" "Next task" ""
+  update_loop_state_field "$tmp_a" "$tmp_b" "Next prepared Codex prompt" ""
+  cp "$tmp_b" "$loop_file"
+  cp "$loop_file" "$cycle_dir/loop-state-after.md"
+  append_autonomous_event "$run_dir" "advanced Loop state for next explicit cycle"
+  return 0
+}
+
+write_autonomous_state() {
+  run_dir="$1"
+  status_text="$2"
+  cycles_completed="$3"
+  latest_decision="$4"
+  human_action="$5"
+  {
+    echo "# Autonomous Loop State"
+    echo
+    echo "- Generated timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "- Status: $status_text"
+    echo "- Workspace: $workspace"
+    echo "- Max cycles: $max_cycles"
+    echo "- Cycles completed: $cycles_completed"
+    echo "- Execute Codex authorized: $execute_codex"
+    echo "- Execute all authorized: $execute_all"
+    echo "- Auto-accept if checks pass: $autonomous_auto_accept"
+    echo "- Advance if next ready: $autonomous_advance"
+    echo "- Latest decision: $latest_decision"
+    echo "- Human action required: $human_action"
+    echo "- Test command: ${test_command:-not provided}"
+    echo
+    echo "## Human Instructions"
+    echo
+    if [ -f "$run_dir/instructions.md" ]; then
+      sed -n '1,120p' "$run_dir/instructions.md"
+    else
+      echo "None"
+    fi
+  } > "$run_dir/autonomous-loop-state.md"
+}
+
+write_autonomous_summary() {
+  run_dir="$1"
+  status_text="$2"
+  cycles_completed="$3"
+  latest_decision="$4"
+  {
+    echo "# Autonomous Loop Summary"
+    echo
+    echo "- Status: $status_text"
+    echo "- Cycles completed: $cycles_completed"
+    echo "- Latest decision: $latest_decision"
+    echo "- Workspace: $workspace"
+    echo "- Push performed: no"
+    echo "- Merge performed: no"
+    echo
+    echo "## Cycle Directories"
+    echo
+    find "$run_dir" -maxdepth 1 -type d -name 'cycle-*' | sort | sed 's/^/- /'
+    echo
+    echo "## Final Notes"
+    echo
+    if [ -f "$run_dir/errors.md" ]; then
+      echo "- Errors or blockers were recorded. Human review is required."
+    else
+      echo "- No errors recorded."
+    fi
+  } > "$run_dir/summary.md"
+}
+
+command_autonomous_loop() {
+  loop_file="$1"
+  shift
+  parse_autonomous_loop_args "$@"
+  verify_workspace "$workspace"
+
+  mkdir -p task-runs
+  run_dir="task-runs/$(date -u +%Y%m%dT%H%M%SZ)-autonomous-loop"
+  [ ! -e "$run_dir" ] || fail "autonomous-loop run directory already exists: $run_dir"
+  mkdir -p "$run_dir"
+  append_autonomous_event "$run_dir" "created autonomous-loop run"
+
+  if [ -n "$autonomous_instruction" ]; then
+    {
+      echo "# Autonomous Loop Instructions"
+      echo
+      echo "## $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      printf '%s\n' "$autonomous_instruction"
+    } > "$run_dir/instructions.md"
+  fi
+  if [ -n "$autonomous_blocker" ]; then
+    write_autonomous_error "$run_dir" "Firm blocker provided: $autonomous_blocker"
+    write_autonomous_state "$run_dir" "blocked" "0" "blocked" "yes"
+    write_autonomous_summary "$run_dir" "blocked" "0" "blocked"
+    echo "Autonomous-loop run directory: $run_dir"
+    return 0
+  fi
+
+  cycles_completed=0
+  latest_decision="pending"
+  status_text="dry_run_ready"
+  human_action="no"
+
+  cycle=1
+  while [ "$cycle" -le "$max_cycles" ]; do
+    cycle_dir="$(autonomous_cycle_dir "$run_dir" "$cycle")"
+    mkdir -p "$cycle_dir"
+    append_autonomous_event "$run_dir" "starting cycle $cycle"
+    cp "$loop_file" "$cycle_dir/loop-state-before.md"
+
+    if [ -f "$run_dir/stop-request.md" ]; then
+      write_autonomous_error "$run_dir" "Stop request exists before cycle $cycle."
+      status_text="stopped"
+      human_action="yes"
+      break
+    fi
+
+    prompt_path="$(resolve_autonomous_prompt "$(prepared_prompt "$loop_file")" || true)"
+    if [ -z "$prompt_path" ] || [ ! -f "$prompt_path" ]; then
+      write_autonomous_error "$run_dir" "Missing prepared Codex prompt for cycle $cycle."
+      status_text="blocked"
+      human_action="yes"
+      break
+    fi
+    write_autonomous_prompt "$run_dir" "$cycle_dir" "$prompt_path"
+
+    git -C "$workspace" status --short > "$cycle_dir/workspace-status-before.txt"
+    if [ -s "$cycle_dir/workspace-status-before.txt" ] && { [ "$cycle" -eq 1 ] || [ "$autonomous_stop_on_dirty" = "true" ]; }; then
+      write_autonomous_error "$run_dir" "Workspace is dirty before cycle $cycle."
+      status_text="blocked"
+      human_action="yes"
+      break
+    fi
+
+    prompt_used_abs="$(cd "$(dirname "$cycle_dir/prompt-used.md")" && pwd -P)/prompt-used.md"
+    printf 'cd %q && codex exec --sandbox workspace-write - < %q\n' "$workspace" "$prompt_used_abs" > "$cycle_dir/codex-command.txt"
+    if [ "$execute_codex" = "true" ]; then
+      command -v codex >/dev/null 2>&1 || fail "codex command not found"
+      codex exec --help >/dev/null 2>&1 || fail "codex exec is not available"
+      append_autonomous_event "$run_dir" "cycle $cycle codex_running"
+      set +e
+      (cd "$workspace" && codex exec --sandbox workspace-write - < "$prompt_used_abs") > "$cycle_dir/codex-stdout.txt" 2> "$cycle_dir/codex-stderr.txt"
+      codex_exit_code=$?
+      set -e
+      printf '%s\n' "$codex_exit_code" > "$cycle_dir/codex-exit-code.txt"
+    else
+      codex_exit_code=0
+    fi
+
+    git -C "$workspace" status --short > "$cycle_dir/workspace-status-after.txt"
+    git -C "$workspace" diff --stat > "$cycle_dir/workspace-diff-stat-after.txt"
+    git -C "$workspace" log --oneline --max-count=5 > "$cycle_dir/workspace-log-after.txt"
+
+    if [ "$execute_codex" = "true" ] && [ "$codex_exit_code" -ne 0 ]; then
+      printf 'revise\n' > "$cycle_dir/decision.md"
+      autonomous_write_review_draft "$run_dir" "$cycle_dir" "$loop_file" "$cycle" "revise"
+      write_autonomous_error "$run_dir" "Codex exited non-zero in cycle $cycle."
+      latest_decision="revise"
+      status_text="codex_failed"
+      human_action="yes"
+      break
+    fi
+
+    if ! autonomous_run_test "$cycle_dir"; then
+      printf 'revise\n' > "$cycle_dir/decision.md"
+      autonomous_write_review_draft "$run_dir" "$cycle_dir" "$loop_file" "$cycle" "revise"
+      write_autonomous_error "$run_dir" "Test command failed in cycle $cycle."
+      latest_decision="revise"
+      status_text="tests_failed"
+      human_action="yes"
+      break
+    fi
+
+    if ! autonomous_modified_files_ok "$cycle_dir"; then
+      printf 'blocked\n' > "$cycle_dir/decision.md"
+      autonomous_write_review_draft "$run_dir" "$cycle_dir" "$loop_file" "$cycle" "revise"
+      write_autonomous_error "$run_dir" "Forbidden or secret-like file modification detected in cycle $cycle."
+      latest_decision="blocked"
+      status_text="blocked"
+      human_action="yes"
+      break
+    fi
+
+    if [ "$autonomous_auto_accept" = "true" ] && { [ -s "$cycle_dir/workspace-diff-stat-after.txt" ] || [ "$execute_codex" != "true" ]; }; then
+      latest_decision="accept"
+    elif [ "$autonomous_auto_accept" = "true" ]; then
+      latest_decision="accept"
+      append_autonomous_event "$run_dir" "cycle $cycle accepted with no diff; no-change accepted"
+    else
+      latest_decision="pending"
+      status_text="waiting_for_decision"
+      human_action="yes"
+      printf 'pending\n' > "$cycle_dir/decision.md"
+      autonomous_write_review_draft "$run_dir" "$cycle_dir" "$loop_file" "$cycle" "pending"
+      break
+    fi
+
+    printf '%s\n' "$latest_decision" > "$cycle_dir/decision.md"
+    autonomous_write_review_draft "$run_dir" "$cycle_dir" "$loop_file" "$cycle" "$latest_decision"
+    cycles_completed=$cycle
+    append_autonomous_event "$run_dir" "cycle $cycle decision: $latest_decision"
+
+    if [ "$autonomous_advance" = "true" ]; then
+      if ! autonomous_advance_loop_state "$run_dir" "$cycle_dir" "$loop_file"; then
+        status_text="blocked"
+        human_action="yes"
+        break
+      fi
+    else
+      status_text="ready_for_advance"
+      human_action="yes"
+      break
+    fi
+
+    cycle=$((cycle + 1))
+  done
+
+  if [ "$cycle" -gt "$max_cycles" ]; then
+    status_text="max_cycles_reached"
+  fi
+  if [ "$status_text" = "dry_run_ready" ] && [ "$execute_codex" = "true" ]; then
+    status_text="completed"
+  fi
+  write_autonomous_state "$run_dir" "$status_text" "$cycles_completed" "$latest_decision" "$human_action"
+  write_autonomous_summary "$run_dir" "$status_text" "$cycles_completed" "$latest_decision"
+  echo "Autonomous-loop run directory: $run_dir"
+  echo "Summary: $run_dir/summary.md"
+  echo "No push or merge was performed by autonomous-loop."
+}
+
 main() {
   verify_orchestia_repo
 
@@ -1778,6 +2299,9 @@ main() {
       ;;
     auto-loop)
       command_auto_loop "$loop_file" "$@"
+      ;;
+    autonomous-loop)
+      command_autonomous_loop "$loop_file" "$@"
       ;;
     *)
       usage

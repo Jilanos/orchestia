@@ -44,6 +44,8 @@ Real mini project validation has started with `job-offer-analyzer`, a local Pyth
 
 The real mini project validation has advanced through job offer parsing using controlled auto-loop execution. `job-offer-analyzer` commit `22d431b Improve job offer parsing` was accepted by REVIEW-0043, and LS-0002 now points to the scoring primary need.
 
+Autonomous local loop mode has been introduced in `scripts/orchestia_loop.sh` and validated on a disposable workspace under `task-runs/`. It can run multiple local Codex cycles with explicit execution authorization, auto-accept only passing cycles when policy allows it, and stop safely when the next state is missing or ambiguous.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
