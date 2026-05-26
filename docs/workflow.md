@@ -112,6 +112,18 @@ The autonomous loop can run multiple local cycles, each with its own `cycle-001/
 
 Human control remains required for ambiguous next primary needs, firm blockers, execution flags, and any push or merge. The autonomous loop does not push, merge, rebase, tag, delete branches, or call controlled Git flow execute mode.
 
+## End-To-End Orchestration Run
+
+`orchestration-run` is the v0.3 need-to-push runner:
+
+```bash
+bash scripts/orchestia_loop.sh orchestration-run task-runs/example-need-intake/need-intake.md --workspace task-runs/example/workspace --max-cycles 1 --execute-codex --auto-promote-logics --auto-generate-task-prompts --auto-accept-if-checks-pass --advance-if-next-ready --auto-push --remote origin --push-branch integration --test "python3 -m unittest discover -s tests"
+```
+
+It creates `task-runs/<timestamp>-orchestration-run/`, writes `policy.md`, generates Logics draft and prompt evidence, can execute Codex through `codex exec --sandbox workspace-write`, captures test and review evidence, records acceptance and advancement evidence when policy allows it, and delegates push to `scripts/controlled_git_flow.sh auto-push`.
+
+The default remains dry-run. Each capability requires an explicit flag. Auto-push refuses `main/master`, runs controlled Git flow dry-run first, executes only if dry-run passes, and does not merge.
+
 ## Local Cockpit
 
 The local cockpit is `scripts/orchestia_ui.py`, a local HTML interface for inspecting repository state, Loop state, `task-runs/`, Logics records, reviews, and debug status:
@@ -130,6 +142,8 @@ Open `http://127.0.0.1:8765`. The v0.2-beta cockpit action layer supports a cock
 6. Inspect token evidence through `/tokens` when local token usage is present.
 7. Add instructions or request stop for autonomous-loop runs from the run page.
 8. Review evidence and record decisions in Logics.
+
+For v0.3 orchestration, the cockpit also exposes `/orchestration-runs`, `/orchestration-run`, and `/orchestration/start`. The start page creates a request and command preview only; execution remains CLI-driven in this version.
 
 The cockpit action layer does not execute Codex, push, merge, update Loop state, create reviews, or write final Logics records. It writes only safe drafts and autonomous-loop control files under `task-runs/`.
 

@@ -62,6 +62,8 @@ v0.3 is the next goal: cockpit-driven orchestration with explicit human confirma
 
 The first v0.3 cockpit-driven action has been introduced: a cockpit need intake can now generate draft-only Logics files under `task-runs/*-logics-draft/` for human review without writing final records into `logics/`.
 
+The first end-to-end v0.3 orchestration-run has been introduced. It can create run policy evidence, generate Logics and prompt evidence, execute Codex when explicitly authorized, auto-accept passing checks when policy allows, record advancement evidence, and delegate controlled auto-push to `controlled_git_flow.sh` for non-protected branches.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

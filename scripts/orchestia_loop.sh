@@ -14,6 +14,7 @@ usage:
   scripts/orchestia_loop.sh finalize-review --draft task-runs/<dir>/<draft.md> --review-id REVIEW-XXXX --review-title "<title>" --reviewed-task TASK-XXXX --decision accept|revise|split|reject
   scripts/orchestia_loop.sh auto-loop <loop-state> --workspace <path> --max-steps <n> [--decision accept|revise|split|reject] [--advance --last-review <path> --next-action "<text>" --stop-condition "<text>"]
   scripts/orchestia_loop.sh autonomous-loop <loop-state> --workspace <path> --max-cycles <n> [--execute-codex|--execute-all] [--auto-accept-if-checks-pass] [--advance-if-next-ready] [--test "<command>"] [--instruction "<text>"]
+  scripts/orchestia_loop.sh orchestration-run <need-intake-or-loop-state> --workspace <path> --max-cycles <n> [--execute-codex|--execute-all] [--auto-promote-logics] [--auto-generate-task-prompts] [--auto-accept-if-checks-pass] [--advance-if-next-ready] [--auto-push --remote <name> --push-branch <branch>] [--test "<command>"] [--instruction "<text>"]
   scripts/orchestia_loop.sh auto-loop-status task-runs/<dir>-auto-loop
   scripts/orchestia_loop.sh auto-loop-instruct task-runs/<dir>-auto-loop "<instruction>"
   scripts/orchestia_loop.sh auto-loop-stop task-runs/<dir>-auto-loop "<reason>"
@@ -585,6 +586,97 @@ parse_autonomous_loop_args() {
     ''|*[!0-9]*) fail "--max-cycles must be a positive integer" ;;
   esac
   [ "$max_cycles" -gt 0 ] || fail "--max-cycles must be greater than zero"
+}
+
+parse_orchestration_run_args() {
+  workspace=""
+  max_cycles=""
+  execute_codex=false
+  execute_all=false
+  orchestration_auto_promote=false
+  orchestration_auto_generate_prompts=false
+  orchestration_auto_accept=false
+  orchestration_advance=false
+  orchestration_auto_push=false
+  remote=""
+  push_branch=""
+  orchestration_instruction=""
+  test_command=""
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --workspace)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --workspace"
+        workspace="$1"
+        ;;
+      --max-cycles)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --max-cycles"
+        max_cycles="$1"
+        ;;
+      --execute-codex)
+        execute_codex=true
+        ;;
+      --execute-all)
+        execute_all=true
+        execute_codex=true
+        ;;
+      --auto-promote-logics)
+        orchestration_auto_promote=true
+        ;;
+      --auto-generate-task-prompts)
+        orchestration_auto_generate_prompts=true
+        ;;
+      --auto-accept-if-checks-pass)
+        orchestration_auto_accept=true
+        ;;
+      --advance-if-next-ready)
+        orchestration_advance=true
+        ;;
+      --auto-push)
+        orchestration_auto_push=true
+        ;;
+      --remote)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --remote"
+        remote="$1"
+        ;;
+      --push-branch)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --push-branch"
+        push_branch="$1"
+        ;;
+      --test)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --test"
+        test_command="$1"
+        ;;
+      --instruction)
+        shift
+        [ "$#" -gt 0 ] || fail "missing value for --instruction"
+        orchestration_instruction="$1"
+        ;;
+      *)
+        fail "unknown argument: $1"
+        ;;
+    esac
+    shift
+  done
+
+  [ -n "$workspace" ] || fail "missing --workspace"
+  [ -n "$max_cycles" ] || fail "missing --max-cycles"
+  case "$max_cycles" in
+    ''|*[!0-9]*) fail "--max-cycles must be a positive integer" ;;
+  esac
+  [ "$max_cycles" -gt 0 ] || fail "--max-cycles must be greater than zero"
+  if [ "$orchestration_auto_push" = "true" ]; then
+    [ -n "$remote" ] || fail "--auto-push requires --remote"
+    [ -n "$push_branch" ] || fail "--auto-push requires --push-branch"
+    if is_protected_branch "$push_branch"; then
+      fail "refusing orchestration auto-push to protected branch $push_branch"
+    fi
+  fi
 }
 
 is_protected_branch() {
@@ -2286,6 +2378,493 @@ command_autonomous_loop() {
   echo "No push or merge was performed by autonomous-loop."
 }
 
+append_orchestration_event() {
+  run_dir="$1"
+  message="$2"
+  printf '%s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$message" >> "$run_dir/events.log"
+}
+
+write_orchestration_error() {
+  run_dir="$1"
+  message="$2"
+  if [ ! -f "$run_dir/errors.md" ]; then
+    {
+      echo "# Orchestration Run Errors"
+      echo
+    } > "$run_dir/errors.md"
+  fi
+  {
+    echo "## $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    printf '%s\n' "$message"
+    echo
+  } >> "$run_dir/errors.md"
+  append_orchestration_event "$run_dir" "error: $message"
+}
+
+write_orchestration_policy() {
+  run_dir="$1"
+  source_path="$2"
+  {
+    echo "# Orchestration Run Policy"
+    echo
+    echo "- Created at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "- Source: $source_path"
+    echo "- Workspace: $workspace"
+    echo "- Execute Codex allowed: $execute_codex"
+    echo "- Execute all allowed: $execute_all"
+    echo "- Auto-promote Logics allowed: $orchestration_auto_promote"
+    echo "- Auto-generate prompts allowed: $orchestration_auto_generate_prompts"
+    echo "- Auto-accept allowed: $orchestration_auto_accept"
+    echo "- Advance Loop state allowed: $orchestration_advance"
+    echo "- Auto-push allowed: $orchestration_auto_push"
+    echo "- Remote: ${remote:-none}"
+    echo "- Push branch: ${push_branch:-none}"
+    echo "- Protected branches: main/master"
+    echo "- Max cycles: $max_cycles"
+    echo "- Test command: ${test_command:-none}"
+    echo "- Stop conditions: missing intake, invalid intake, ID collision, draft generation failure, promotion failure, missing workspace, /mnt/c workspace, non-Git workspace, dirty workspace before execution, missing prompt, Codex failure, test failure, forbidden file change, ambiguous next primary need, missing next prompt, stop-request.md, protected push branch, controlled auto-push failure, max cycles reached, initial need complete"
+  } > "$run_dir/policy.md"
+}
+
+write_orchestration_state() {
+  run_dir="$1"
+  status_text="$2"
+  cycles_completed="$3"
+  latest_decision="$4"
+  push_status="$5"
+  human_action="$6"
+  {
+    echo "# Orchestration Run State"
+    echo
+    echo "- Generated timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "- Status: $status_text"
+    echo "- Workspace: $workspace"
+    echo "- Max cycles: $max_cycles"
+    echo "- Cycles completed: $cycles_completed"
+    echo "- Latest decision: $latest_decision"
+    echo "- Push status: $push_status"
+    echo "- Human action required: $human_action"
+  } > "$run_dir/orchestration-state.md"
+}
+
+write_orchestration_summary() {
+  run_dir="$1"
+  status_text="$2"
+  cycles_completed="$3"
+  latest_decision="$4"
+  push_status="$5"
+  {
+    echo "# Orchestration Run Summary"
+    echo
+    echo "- Status: $status_text"
+    echo "- Cycles completed: $cycles_completed"
+    echo "- Latest decision: $latest_decision"
+    echo "- Auto-push status: $push_status"
+    echo "- Workspace: $workspace"
+    echo "- Merge performed: no"
+    echo
+    echo "## Evidence"
+    echo
+    echo "- Policy: policy.md"
+    echo "- Events: events.log"
+    echo "- Cycles: cycles/"
+    echo "- Git flow: git-flow/"
+    echo
+    if [ -f "$run_dir/errors.md" ]; then
+      echo "## Errors"
+      echo
+      sed -n '1,120p' "$run_dir/errors.md"
+    else
+      echo "## Errors"
+      echo
+      echo "None recorded."
+    fi
+  } > "$run_dir/summary.md"
+}
+
+orchestration_copy_source() {
+  source_path="$1"
+  run_dir="$2"
+  [ -n "$source_path" ] || fail "missing source path"
+  [ -f "$source_path" ] || fail "source file not found: $source_path"
+  case "$source_path" in
+    *..*) fail "source path must not contain '..'" ;;
+  esac
+  mkdir -p "$run_dir/need-intake"
+  cp "$source_path" "$run_dir/need-intake/$(basename "$source_path")"
+}
+
+orchestration_source_title() {
+  source_path="$1"
+  title="$(awk '
+    /^# / { sub(/^# /, "", $0); print; exit }
+    tolower($0) ~ /^- title:/ { sub(/^- [^:]+:[[:space:]]*/, "", $0); print; exit }
+    tolower($0) ~ /^title:/ { sub(/^[^:]+:[[:space:]]*/, "", $0); print; exit }
+  ' "$source_path")"
+  [ -n "$title" ] || title="$(basename "$source_path")"
+  printf '%s\n' "$title"
+}
+
+orchestration_source_description() {
+  source_path="$1"
+  awk '
+    BEGIN { capture = 0 }
+    /^## Description/ { capture = 1; next }
+    /^## / && capture == 1 { exit }
+    capture == 1 { print }
+  ' "$source_path"
+}
+
+orchestration_generate_logics_drafts() {
+  run_dir="$1"
+  source_path="$2"
+  title="$(orchestration_source_title "$source_path")"
+  mkdir -p "$run_dir/logics-drafts"
+  {
+    echo "# Logics Draft Summary"
+    echo
+    echo "- Status: draft"
+    echo "- Source: $source_path"
+    echo "- Title: $title"
+    echo "- Promotion: ${orchestration_auto_promote}"
+  } > "$run_dir/logics-drafts/summary.md"
+  {
+    echo "# Initial Need Draft"
+    echo
+    echo "- Proposed ID: IN-TODO"
+    echo "- Title: $title"
+    echo "- Status: draft"
+    echo
+    echo "## Problem Statement"
+    echo
+    orchestration_source_description "$source_path" || true
+  } > "$run_dir/logics-drafts/initial_need_draft.md"
+  {
+    echo "# Primary Needs Draft"
+    echo
+    echo "- Draft primary need 1: foundation"
+    echo "- Draft primary need 2: implementation"
+    echo "- Draft primary need 3: validation and documentation"
+  } > "$run_dir/logics-drafts/primary_needs_draft.md"
+  {
+    echo "# Request Draft"
+    echo
+    echo "- Status: draft"
+    echo "- First request: implement the first bounded slice for $title"
+  } > "$run_dir/logics-drafts/request_draft.md"
+  {
+    echo "# Backlog Draft"
+    echo
+    echo "- Status: draft"
+    echo "- Acceptance criteria: tests pass; evidence captured; human review remains possible"
+  } > "$run_dir/logics-drafts/backlog_draft.md"
+  append_orchestration_event "$run_dir" "generated Logics drafts"
+}
+
+orchestration_promote_logics_package() {
+  run_dir="$1"
+  mkdir -p "$run_dir/promoted-logics"
+  {
+    echo "# Promoted Logics Package"
+    echo
+    echo "This first orchestration-run implementation records a promotion package under task-runs only."
+    echo "It does not write final tracked Logics records. Future promotion must perform ID collision checks."
+    echo
+    echo "- Source drafts: ../logics-drafts/"
+    echo "- Promotion authorized: $orchestration_auto_promote"
+  } > "$run_dir/promoted-logics/promotion-package.md"
+  append_orchestration_event "$run_dir" "recorded Logics promotion package"
+}
+
+orchestration_generate_prompt() {
+  run_dir="$1"
+  source_path="$2"
+  title="$(orchestration_source_title "$source_path")"
+  description="$(orchestration_source_description "$source_path" || true)"
+  mkdir -p "$run_dir/prompts"
+  {
+    echo "# Orchestration Task Prompt"
+    echo
+    echo "Work only in this workspace:"
+    echo
+    echo "$workspace"
+    echo
+    echo "## Objective"
+    echo
+    echo "$title"
+    echo
+    echo "## Context From Need Intake"
+    echo
+    printf '%s\n' "${description:-No description provided.}"
+    echo
+    echo "## Safety"
+    echo
+    echo "- Do not read secrets."
+    echo "- Do not print environment variables."
+    echo "- Do not push, merge, rebase, tag, or delete branches."
+    echo "- Keep changes minimal."
+    echo "- If the intake says no file changes are needed, inspect only and leave the workspace unchanged."
+    if [ -n "$orchestration_instruction" ]; then
+      echo
+      echo "## Additional human instructions"
+      echo
+      printf '%s\n' "$orchestration_instruction"
+    fi
+  } > "$run_dir/prompts/task-prompt.md"
+  append_orchestration_event "$run_dir" "generated task prompt"
+}
+
+orchestration_run_test() {
+  cycle_dir="$1"
+  [ -n "$test_command" ] || return 0
+  printf '%s\n' "$test_command" > "$cycle_dir/test-command.txt"
+  set +e
+  (cd "$workspace" && sh -c "$test_command") > "$cycle_dir/test-stdout.txt" 2> "$cycle_dir/test-stderr.txt"
+  test_exit_code=$?
+  set -e
+  printf '%s\n' "$test_exit_code" > "$cycle_dir/test-exit-code.txt"
+  [ "$test_exit_code" -eq 0 ]
+}
+
+orchestration_cycle_review() {
+  run_dir="$1"
+  cycle_dir="$2"
+  decision_value="$3"
+  {
+    echo "# Orchestration Cycle Review Draft"
+    echo
+    echo "- Run: $run_dir"
+    echo "- Cycle: $(basename "$cycle_dir")"
+    echo "- Workspace: $workspace"
+    echo "- Codex exit code: $(cat "$cycle_dir/codex-exit-code.txt" 2>/dev/null || echo "not run")"
+    echo "- Test exit code: $(cat "$cycle_dir/test-exit-code.txt" 2>/dev/null || echo "not run")"
+    echo
+    echo "## Findings"
+    echo
+    if [ "$decision_value" = "accept" ]; then
+      echo "- Checks passed under the declared orchestration policy."
+    else
+      echo "- Human review is required before continuing."
+    fi
+    echo
+    echo "## Decision"
+    echo
+    echo "$decision_value"
+  } > "$cycle_dir/review-draft.md"
+  mkdir -p "$run_dir/reviews"
+  cp "$cycle_dir/review-draft.md" "$run_dir/reviews/$(basename "$cycle_dir")-review-draft.md"
+}
+
+orchestration_auto_push() {
+  run_dir="$1"
+  mkdir -p "$run_dir/git-flow"
+  [ -n "$remote" ] || {
+    write_orchestration_error "$run_dir" "auto-push requested without remote"
+    return 1
+  }
+  [ -n "$push_branch" ] || {
+    write_orchestration_error "$run_dir" "auto-push requested without push branch"
+    return 1
+  }
+  if is_protected_branch "$push_branch"; then
+    write_orchestration_error "$run_dir" "refusing auto-push to protected branch $push_branch"
+    return 1
+  fi
+
+  append_orchestration_event "$run_dir" "starting controlled auto-push dry-run"
+  push_args=(auto-push --workspace "$workspace" --remote "$remote" --branch "$push_branch")
+  if [ -n "$test_command" ]; then
+    push_args+=(--test "$test_command")
+  fi
+  set +e
+  bash scripts/controlled_git_flow.sh "${push_args[@]}" > "$run_dir/git-flow/auto-push-dry-run-stdout.txt" 2> "$run_dir/git-flow/auto-push-dry-run-stderr.txt"
+  dry_exit=$?
+  set -e
+  printf '%s\n' "$dry_exit" > "$run_dir/git-flow/auto-push-dry-run-exit-code.txt"
+  [ "$dry_exit" -eq 0 ] || {
+    write_orchestration_error "$run_dir" "controlled auto-push dry-run failed"
+    return 1
+  }
+
+  append_orchestration_event "$run_dir" "starting controlled auto-push execute"
+  push_args+=(--execute)
+  set +e
+  bash scripts/controlled_git_flow.sh "${push_args[@]}" > "$run_dir/git-flow/auto-push-execute-stdout.txt" 2> "$run_dir/git-flow/auto-push-execute-stderr.txt"
+  exec_exit=$?
+  set -e
+  printf '%s\n' "$exec_exit" > "$run_dir/git-flow/auto-push-execute-exit-code.txt"
+  [ "$exec_exit" -eq 0 ] || {
+    write_orchestration_error "$run_dir" "controlled auto-push execute failed"
+    return 1
+  }
+  echo "auto-push completed for $push_branch to $remote" > "$run_dir/git-flow/push-result.md"
+  append_orchestration_event "$run_dir" "controlled auto-push completed"
+  return 0
+}
+
+command_orchestration_run() {
+  source_path="$1"
+  shift
+  parse_orchestration_run_args "$@"
+
+  mkdir -p task-runs
+  run_dir="task-runs/$(date -u +%Y%m%dT%H%M%SZ)-orchestration-run"
+  [ ! -e "$run_dir" ] || fail "orchestration run directory already exists: $run_dir"
+  mkdir -p "$run_dir"/{cycles,git-flow,loop-state-updates,need-intake,promoted-logics,prompts,reviews}
+  append_orchestration_event "$run_dir" "created orchestration-run"
+  write_orchestration_policy "$run_dir" "$source_path"
+
+  status_text="dry_run_ready"
+  cycles_completed=0
+  latest_decision="pending"
+  push_status="not requested"
+  human_action="no"
+
+  if [ -n "$orchestration_instruction" ]; then
+    {
+      echo "# Orchestration Instructions"
+      echo
+      printf '%s\n' "$orchestration_instruction"
+    } > "$run_dir/instructions.md"
+  fi
+
+  if ! orchestration_copy_source "$source_path" "$run_dir"; then
+    write_orchestration_error "$run_dir" "invalid source: $source_path"
+    status_text="blocked"
+    human_action="yes"
+    write_orchestration_state "$run_dir" "$status_text" "$cycles_completed" "$latest_decision" "$push_status" "$human_action"
+    write_orchestration_summary "$run_dir" "$status_text" "$cycles_completed" "$latest_decision" "$push_status"
+    echo "Orchestration run directory: $run_dir"
+    return 0
+  fi
+
+  orchestration_generate_logics_drafts "$run_dir" "$source_path"
+  if [ "$orchestration_auto_promote" = "true" ]; then
+    orchestration_promote_logics_package "$run_dir"
+  fi
+  if [ "$orchestration_auto_generate_prompts" = "true" ]; then
+    orchestration_generate_prompt "$run_dir" "$source_path"
+  fi
+
+  {
+    echo "# Command Preview"
+    echo
+    printf 'bash scripts/orchestia_loop.sh orchestration-run %q --workspace %q --max-cycles %q' "$source_path" "$workspace" "$max_cycles"
+    [ "$execute_codex" = "true" ] && printf ' --execute-codex'
+    [ "$orchestration_auto_promote" = "true" ] && printf ' --auto-promote-logics'
+    [ "$orchestration_auto_generate_prompts" = "true" ] && printf ' --auto-generate-task-prompts'
+    [ "$orchestration_auto_accept" = "true" ] && printf ' --auto-accept-if-checks-pass'
+    [ "$orchestration_advance" = "true" ] && printf ' --advance-if-next-ready'
+    if [ "$orchestration_auto_push" = "true" ]; then
+      printf ' --auto-push --remote %q --push-branch %q' "$remote" "$push_branch"
+    fi
+    [ -n "$test_command" ] && printf ' --test %q' "$test_command"
+    [ -n "$orchestration_instruction" ] && printf ' --instruction %q' "$orchestration_instruction"
+    echo
+  } > "$run_dir/command-preview.md"
+
+  if [ "$execute_codex" = "true" ] || [ "$orchestration_auto_push" = "true" ]; then
+    if ! verify_workspace "$workspace"; then
+      write_orchestration_error "$run_dir" "workspace verification failed"
+      status_text="blocked"
+      human_action="yes"
+      write_orchestration_state "$run_dir" "$status_text" "$cycles_completed" "$latest_decision" "$push_status" "$human_action"
+      write_orchestration_summary "$run_dir" "$status_text" "$cycles_completed" "$latest_decision" "$push_status"
+      echo "Orchestration run directory: $run_dir"
+      return 0
+    fi
+  fi
+
+  cycle_dir="$run_dir/cycles/cycle-001"
+  mkdir -p "$cycle_dir"
+  git -C "$workspace" status --short > "$cycle_dir/workspace-status-before.txt" 2>/dev/null || true
+  if [ "$execute_codex" = "true" ] && [ -s "$cycle_dir/workspace-status-before.txt" ]; then
+    write_orchestration_error "$run_dir" "workspace is dirty before execution"
+    status_text="blocked"
+    human_action="yes"
+  elif [ "$execute_codex" = "true" ]; then
+    prompt_file="$run_dir/prompts/task-prompt.md"
+    [ -f "$prompt_file" ] || orchestration_generate_prompt "$run_dir" "$source_path"
+    cp "$prompt_file" "$cycle_dir/prompt-used.md"
+    prompt_abs="$(cd "$(dirname "$prompt_file")" && pwd -P)/$(basename "$prompt_file")"
+    printf 'cd %q && codex exec --sandbox workspace-write - < %q\n' "$workspace" "$prompt_abs" > "$cycle_dir/codex-command.txt"
+    command -v codex >/dev/null 2>&1 || fail "codex command not found"
+    codex exec --help >/dev/null 2>&1 || fail "codex exec is not available"
+    append_orchestration_event "$run_dir" "cycle-001 codex_running"
+    set +e
+    (cd "$workspace" && codex exec --sandbox workspace-write - < "$prompt_abs") > "$cycle_dir/codex-stdout.txt" 2> "$cycle_dir/codex-stderr.txt"
+    codex_exit=$?
+    set -e
+    printf '%s\n' "$codex_exit" > "$cycle_dir/codex-exit-code.txt"
+    [ "$codex_exit" -eq 0 ] || {
+      write_orchestration_error "$run_dir" "Codex exited non-zero"
+      status_text="codex_failed"
+      human_action="yes"
+    }
+  fi
+
+  git -C "$workspace" status --short > "$cycle_dir/workspace-status-after.txt" 2>/dev/null || true
+  git -C "$workspace" diff --stat > "$cycle_dir/workspace-diff-stat-after.txt" 2>/dev/null || true
+  git -C "$workspace" log --oneline --max-count=5 > "$cycle_dir/workspace-log-after.txt" 2>/dev/null || true
+
+  if [ "$status_text" != "blocked" ] && [ "$status_text" != "codex_failed" ]; then
+    if orchestration_run_test "$cycle_dir"; then
+      if [ "$orchestration_auto_accept" = "true" ]; then
+        latest_decision="accept"
+        status_text="accepted"
+      else
+        latest_decision="pending"
+        status_text="waiting_for_decision"
+        human_action="yes"
+      fi
+    else
+      latest_decision="revise"
+      status_text="tests_failed"
+      human_action="yes"
+      write_orchestration_error "$run_dir" "test command failed"
+    fi
+  fi
+  printf '%s\n' "$latest_decision" > "$cycle_dir/decision.md"
+  orchestration_cycle_review "$run_dir" "$cycle_dir" "$latest_decision"
+  cycles_completed=1
+
+  if [ "$orchestration_advance" = "true" ] && [ "$latest_decision" = "accept" ]; then
+    {
+      echo "# Loop State Update"
+      echo
+      echo "Loop state advancement was authorized by policy."
+      echo "This first orchestration-run implementation records advancement evidence under task-runs only unless a future promoted Loop state is supplied."
+    } > "$run_dir/loop-state-updates/update.md"
+    cp "$run_dir/loop-state-updates/update.md" "$cycle_dir/loop-state-after.md"
+    append_orchestration_event "$run_dir" "recorded Loop state advancement evidence"
+  fi
+
+  if [ "$orchestration_auto_push" = "true" ] && [ "$latest_decision" = "accept" ]; then
+    if [ -s "$cycle_dir/workspace-status-after.txt" ]; then
+      push_status="blocked: workspace dirty"
+      status_text="blocked"
+      human_action="yes"
+      write_orchestration_error "$run_dir" "workspace has uncommitted changes; controlled auto-push requires committed clean state"
+    elif orchestration_auto_push "$run_dir"; then
+      push_status="pushed"
+      status_text="completed"
+    else
+      push_status="failed"
+      status_text="blocked"
+      human_action="yes"
+    fi
+  elif [ "$orchestration_auto_push" = "true" ]; then
+    push_status="not run: decision not accepted"
+  fi
+
+  write_orchestration_state "$run_dir" "$status_text" "$cycles_completed" "$latest_decision" "$push_status" "$human_action"
+  write_orchestration_summary "$run_dir" "$status_text" "$cycles_completed" "$latest_decision" "$push_status"
+  echo "Orchestration run directory: $run_dir"
+  echo "Summary: $run_dir/summary.md"
+  echo "Merge performed: no"
+}
+
 main() {
   verify_orchestia_repo
 
@@ -2334,6 +2913,11 @@ main() {
 
   loop_file="$2"
   shift 2
+  if [ "$command_name" = "orchestration-run" ]; then
+    [ -f "$loop_file" ] || fail "orchestration source file not found: $loop_file"
+    command_orchestration_run "$loop_file" "$@"
+    exit 0
+  fi
   require_loop_state "$loop_file"
 
   case "$command_name" in

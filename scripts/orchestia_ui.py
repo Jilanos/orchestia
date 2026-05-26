@@ -8,6 +8,7 @@ import html
 import json
 import os
 import re
+import shlex
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -176,6 +177,10 @@ def route_link(path: str, label: str) -> str:
     return f'<a href="{esc(path)}">{esc(label)}</a>'
 
 
+def sh_quote(value: str) -> str:
+    return shlex.quote(value)
+
+
 def field_value(text: str, labels: list[str]) -> str:
     wanted = [label.lower() for label in labels]
     for line in text.splitlines():
@@ -271,6 +276,17 @@ def autonomous_loop_dirs(repo: Path) -> list[Path]:
     )
 
 
+def orchestration_run_dirs(repo: Path) -> list[Path]:
+    root = repo / "task-runs"
+    if not root.exists():
+        return []
+    return sorted(
+        (path for path in root.glob("*-orchestration-run") if path.is_dir() and not path.name.startswith(".")),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
 def need_intake_dirs(repo: Path) -> list[Path]:
     root = repo / "task-runs"
     if not root.exists():
@@ -330,6 +346,10 @@ def validate_need_intake_file(repo: Path, rel_path: str) -> Path:
 
 def validate_logics_draft_dir(repo: Path, rel_path: str) -> Path:
     return validate_task_run_dir(repo, rel_path, "-logics-draft")
+
+
+def validate_orchestration_run_dir(repo: Path, rel_path: str) -> Path:
+    return validate_task_run_dir(repo, rel_path, "-orchestration-run")
 
 
 def optional_text(path: Path, limit: int = 8000) -> str:
@@ -482,6 +502,36 @@ def human_action_required_for_autonomous_loop(run_dir: Path) -> bool:
     return autonomous_loop_status(run_dir) in {"blocked", "error", "tests_failed", "codex_failed", "waiting_for_decision", "stopped"}
 
 
+def orchestration_run_status(run_dir: Path) -> str:
+    state = optional_text(run_dir / "orchestration-state.md")
+    value = field_value(state, ["status"])
+    if value != "None":
+        return value
+    if (run_dir / "errors.md").exists():
+        return "error"
+    if (run_dir / "summary.md").exists():
+        return "unknown"
+    return "created"
+
+
+def orchestration_run_field(run_dir: Path, labels: list[str]) -> str:
+    return field_value(optional_text(run_dir / "orchestration-state.md"), labels)
+
+
+def orchestration_cycle_count(run_dir: Path) -> int:
+    cycles = run_dir / "cycles"
+    if not cycles.exists():
+        return 0
+    return len([path for path in cycles.glob("cycle-*") if path.is_dir()])
+
+
+def human_action_required_for_orchestration(run_dir: Path) -> bool:
+    value = orchestration_run_field(run_dir, ["human action required"])
+    if value.lower() in {"yes", "true"}:
+        return True
+    return orchestration_run_status(run_dir) in {"blocked", "error", "tests_failed", "codex_failed", "waiting_for_decision", "stopped"}
+
+
 TOKEN_PATTERNS = {
     "total": re.compile(r"(?:total(?:[_ -]?tokens)?|tokens)[=:]?\s*([0-9][0-9,]*)", re.IGNORECASE),
     "input": re.compile(r"(?:input|prompt)(?:[_ -]?tokens)?[=:]?\s*([0-9][0-9,]*)", re.IGNORECASE),
@@ -543,6 +593,8 @@ def page(title: str, body: str) -> bytes:
             route_link("/", "Dashboard"),
             route_link("/needs", "Needs"),
             route_link("/logics-drafts", "Logics Drafts"),
+            route_link("/orchestration-runs", "Orchestration Runs"),
+            route_link("/orchestration/start", "Start Orchestration"),
             route_link("/loop-dashboard", "Loop Dashboard"),
             route_link("/auto-loop", "Auto Loop"),
             route_link("/autonomous-loop", "Autonomous"),
@@ -602,6 +654,9 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
         routes = {
             "/needs/create": self.create_need,
             "/needs/generate-logics-draft": self.generate_logics_draft,
+            "/orchestration/start": self.create_orchestration_request,
+            "/actions/orchestration-instruct": self.orchestration_instruct_action,
+            "/actions/orchestration-stop": self.orchestration_stop_action,
             "/actions/autonomous-loop-instruct": self.autonomous_loop_instruct_action,
             "/actions/autonomous-loop-stop": self.autonomous_loop_stop_action,
         }
@@ -641,6 +696,9 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
             "/need-intake": lambda: self.need_intake_detail(query),
             "/logics-drafts": self.logics_drafts,
             "/logics-draft": lambda: self.logics_draft_detail(query),
+            "/orchestration-runs": self.orchestration_runs,
+            "/orchestration-run": lambda: self.orchestration_run_detail(query),
+            "/orchestration/start": self.start_orchestration,
             "/loops": self.loops,
             "/loop-dashboard": self.loop_dashboard,
             "/loop": lambda: self.loop_detail(query),
@@ -1089,6 +1147,10 @@ Use this checklist before creating final Logics records.
         latest_autonomous = autonomous_runs[0] if autonomous_runs else None
         if latest_autonomous and human_action_required_for_autonomous_loop(latest_autonomous):
             warnings.append(f"Human action required in latest autonomous-loop run: {latest_autonomous.name}")
+        orchestration_runs = orchestration_run_dirs(repo)
+        latest_orchestration = orchestration_runs[0] if orchestration_runs else None
+        if latest_orchestration and human_action_required_for_orchestration(latest_orchestration):
+            warnings.append(f"Human action required in latest orchestration-run: {latest_orchestration.name}")
         latest_auto_html = "<p>No auto-loop runs found.</p>"
         if latest_auto:
             latest_rel = rel(repo, latest_auto)
@@ -1116,6 +1178,18 @@ Use this checklist before creating final Logics records.
                 f'<p><strong>Latest decision:</strong> {esc(autonomous_loop_field(latest_autonomous, ["latest decision"]))}</p>'
                 f'<p><strong>Human action required:</strong> {esc(autonomous_loop_field(latest_autonomous, ["human action required"]))}</p>'
             )
+        latest_orchestration_html = "<p>No orchestration-run directories found.</p>"
+        if latest_orchestration:
+            latest_orchestration_rel = rel(repo, latest_orchestration)
+            latest_orchestration_html = (
+                f'<p><strong>Latest orchestration-run:</strong> '
+                f'<a href="/orchestration-run?path={quote(latest_orchestration_rel)}">{esc(latest_orchestration.name)}</a></p>'
+                f'<p><strong>Status:</strong> {esc(orchestration_run_status(latest_orchestration))}</p>'
+                f'<p><strong>Cycles:</strong> {esc(orchestration_cycle_count(latest_orchestration))}</p>'
+                f'<p><strong>Latest decision:</strong> {esc(orchestration_run_field(latest_orchestration, ["latest decision"]))}</p>'
+                f'<p><strong>Push status:</strong> {esc(orchestration_run_field(latest_orchestration, ["push status"]))}</p>'
+                f'<p><strong>Human action required:</strong> {esc(orchestration_run_field(latest_orchestration, ["human action required"]))}</p>'
+            )
         warning_html = "".join(f'<div class="warn">{esc(item)}</div>' for item in warnings) or '<div class="ok">No dashboard warnings.</div>'
         card_html = "".join(f'<div class="card"><div class="muted">{esc(label)}</div><div class="metric">{value}</div></div>' for label, value in cards)
         body = f"""
@@ -1139,10 +1213,18 @@ Use this checklist before creating final Logics records.
   <p>{route_link('/autonomous-loop', 'View autonomous-loop runs')}</p>
 </section>
 <section>
+  <h2>Orchestration-run</h2>
+  {latest_orchestration_html}
+  <p>{route_link('/orchestration-runs', 'View orchestration runs')}</p>
+  <p>{route_link('/orchestration/start', 'Start orchestration request')}</p>
+</section>
+<section>
   <h2>Main sections</h2>
   <ul>
     <li>{route_link('/needs', 'Needs')}</li>
     <li>{route_link('/logics-drafts', 'Logics drafts')}</li>
+    <li>{route_link('/orchestration-runs', 'Orchestration runs')}</li>
+    <li>{route_link('/orchestration/start', 'Start orchestration')}</li>
     <li>{route_link('/loop-dashboard', 'Loop Dashboard')}</li>
     <li>{route_link('/loops', 'Loop states')}</li>
     <li>{route_link('/auto-loop', 'Auto-loop runs')}</li>
@@ -1339,6 +1421,222 @@ Use this checklist before creating final Logics records.
 </section>
 """
         return page("Logics Draft", body)
+
+    def create_orchestration_request(self, data: dict[str, list[str]]) -> bytes:
+        source_path = first_value(data, "source_path", 1000)
+        workspace = first_value(data, "workspace", 1000)
+        max_cycles = first_value(data, "max_cycles", 20) or "1"
+        test_command = first_value(data, "test_command", 1000)
+        remote = first_value(data, "remote", 200)
+        push_branch = first_value(data, "push_branch", 200)
+        instruction = first_value(data, "instruction", 2000)
+
+        flags = {
+            "allow_execute_codex": "allow_execute_codex" in data,
+            "allow_auto_promote": "allow_auto_promote" in data,
+            "allow_generate_prompts": "allow_generate_prompts" in data,
+            "allow_auto_accept": "allow_auto_accept" in data,
+            "allow_advance": "allow_advance" in data,
+            "allow_auto_push": "allow_auto_push" in data,
+        }
+
+        run_dir = self.repo / "task-runs" / f"{utc_timestamp()}-orchestration-request"
+        run_dir.mkdir(parents=True, exist_ok=False)
+        command = [
+            "bash",
+            "scripts/orchestia_loop.sh",
+            "orchestration-run",
+            source_path or "<need-intake-or-loop-state>",
+            "--workspace",
+            workspace or "<workspace>",
+            "--max-cycles",
+            max_cycles,
+        ]
+        if flags["allow_execute_codex"]:
+            command.append("--execute-codex")
+        if flags["allow_auto_promote"]:
+            command.append("--auto-promote-logics")
+        if flags["allow_generate_prompts"]:
+            command.append("--auto-generate-task-prompts")
+        if flags["allow_auto_accept"]:
+            command.append("--auto-accept-if-checks-pass")
+        if flags["allow_advance"]:
+            command.append("--advance-if-next-ready")
+        if flags["allow_auto_push"]:
+            command.append("--auto-push")
+            command.extend(["--remote", remote or "<remote>", "--push-branch", push_branch or "<branch>"])
+        if test_command:
+            command.extend(["--test", test_command])
+        if instruction:
+            command.extend(["--instruction", instruction])
+
+        preview = " ".join(sh_quote(part) for part in command)
+        request = f"""# Orchestration Request
+
+## Status
+
+request only. No command was executed by the cockpit.
+
+## Source
+
+{source_path or 'TODO'}
+
+## Workspace
+
+{workspace or 'TODO'}
+
+## Policy
+
+- Execute Codex allowed: {flags['allow_execute_codex']}
+- Auto-promote Logics allowed: {flags['allow_auto_promote']}
+- Auto-generate prompts allowed: {flags['allow_generate_prompts']}
+- Auto-accept allowed: {flags['allow_auto_accept']}
+- Advance Loop state allowed: {flags['allow_advance']}
+- Auto-push allowed: {flags['allow_auto_push']}
+- Remote: {remote or 'None'}
+- Push branch: {push_branch or 'None'}
+- Max cycles: {max_cycles}
+- Test command: {test_command or 'None'}
+
+## Instruction
+
+{instruction or 'None'}
+"""
+        (run_dir / "request.md").write_text(request, encoding="utf-8")
+        (run_dir / "command-preview.md").write_text(f"# Command Preview\n\n```bash\n{preview}\n```\n", encoding="utf-8")
+        body = f"""
+<section><h2>Orchestration request created</h2>
+<div class="ok">Request written under task-runs. No Codex execution, push, merge, or shell command was run from the cockpit.</div>
+<p><strong>Directory:</strong> <code>{esc(rel(self.repo, run_dir))}</code></p>
+<h3>Command preview</h3>
+<pre>{esc(preview)}</pre>
+<p>{route_link('/orchestration/start', 'Create another request')}</p>
+<p>{route_link('/orchestration-runs', 'View orchestration runs')}</p>
+</section>
+"""
+        return page("Orchestration request", body)
+
+    def orchestration_instruct_action(self, data: dict[str, list[str]]) -> bytes:
+        run_rel = first_value(data, "run_path", 1000)
+        instruction = first_value(data, "instruction", 4000)
+        if not instruction:
+            raise ValueError("instruction is required")
+        run_dir = validate_orchestration_run_dir(self.repo, run_rel)
+        target = run_dir / "instructions.md"
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(f"\n## {utc_iso()}\n\n{instruction}\n")
+        return self.action_result("Orchestration instruction appended", target, "No command was executed and no project workspace was modified.")
+
+    def orchestration_stop_action(self, data: dict[str, list[str]]) -> bytes:
+        run_rel = first_value(data, "run_path", 1000)
+        reason = first_value(data, "reason", 4000)
+        if not reason:
+            raise ValueError("stop reason is required")
+        run_dir = validate_orchestration_run_dir(self.repo, run_rel)
+        target = run_dir / "stop-request.md"
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(f"\n## {utc_iso()}\n\n{reason}\n")
+        return self.action_result("Orchestration stop request recorded", target, "No command was executed and no project workspace was modified.")
+
+    def orchestration_runs(self) -> bytes:
+        rows = []
+        for path in orchestration_run_dirs(self.repo):
+            path_rel = rel(self.repo, path)
+            latest_error = tail_lines(optional_text(path / "errors.md"), 3)
+            rows.append(
+                "<tr>"
+                f'<td><a href="/orchestration-run?path={quote(path_rel)}">{esc(path.name)}</a></td>'
+                f"<td>{esc(orchestration_run_status(path))}</td>"
+                f"<td>{esc(orchestration_cycle_count(path))}</td>"
+                f"<td>{esc(orchestration_run_field(path, ['latest decision']))}</td>"
+                f"<td>{esc(orchestration_run_field(path, ['push status']))}</td>"
+                f"<td>{esc('yes' if human_action_required_for_orchestration(path) else 'no')}</td>"
+                f"<td><pre>{esc(latest_error or 'None')}</pre></td>"
+                "</tr>"
+            )
+        table = "".join(rows) or '<tr><td colspan="7">No orchestration-run directories found.</td></tr>'
+        body = f"""
+<section><h2>Orchestration Runs</h2>
+<p>{route_link('/orchestration/start', 'Start orchestration request')}</p>
+<table><thead><tr><th>Run</th><th>Status</th><th>Cycles</th><th>Latest decision</th><th>Push status</th><th>Human action</th><th>Latest error</th></tr></thead><tbody>{table}</tbody></table>
+</section>
+"""
+        return page("Orchestration Runs", body)
+
+    def orchestration_run_detail(self, query: dict[str, list[str]]) -> bytes:
+        try:
+            path = validate_orchestration_run_dir(self.repo, query.get("path", [""])[0])
+        except ValueError as exc:
+            return page("Orchestration run blocked", f'<section><div class="warn">{esc(exc)}</div></section>')
+
+        path_rel = rel(self.repo, path)
+        cycle_links = []
+        cycles_root = path / "cycles"
+        if cycles_root.exists():
+            for cycle in sorted(cycles_root.glob("cycle-*")):
+                if cycle.is_dir():
+                    cycle_links.append(f"<li>{esc(cycle.name)}: {route_link('/run?path=' + quote(rel(self.repo, cycle)), 'open evidence')}</li>")
+        sections = []
+        for title, filename in [
+            ("Summary", "summary.md"),
+            ("Policy", "policy.md"),
+            ("Events", "events.log"),
+            ("Errors", "errors.md"),
+            ("Token usage", "token-usage.md"),
+        ]:
+            target = path / filename
+            if target.exists():
+                sections.append(f"<section><h2>{esc(title)}</h2><pre>{esc(tail_lines(optional_text(target), 80))}</pre></section>")
+        body = f"""
+<section><h2>{esc(path.name)}</h2>
+<p>{route_link('/orchestration-runs', 'Back to orchestration runs')}</p>
+<p><strong>Status:</strong> {esc(orchestration_run_status(path))}</p>
+<p><strong>Cycles:</strong> {esc(orchestration_cycle_count(path))}</p>
+<p><strong>Latest decision:</strong> {esc(orchestration_run_field(path, ['latest decision']))}</p>
+<p><strong>Push status:</strong> {esc(orchestration_run_field(path, ['push status']))}</p>
+<p><strong>Human action required:</strong> {esc('yes' if human_action_required_for_orchestration(path) else 'no')}</p>
+<h3>Controls</h3>
+<form method="post" action="/actions/orchestration-instruct">
+  <input type="hidden" name="run_path" value="{esc(path_rel)}">
+  <label>Instruction<br><textarea name="instruction" rows="3"></textarea></label><br>
+  <button type="submit">Append instruction</button>
+</form>
+<form method="post" action="/actions/orchestration-stop">
+  <input type="hidden" name="run_path" value="{esc(path_rel)}">
+  <label>Stop reason<br><textarea name="reason" rows="3"></textarea></label><br>
+  <button type="submit">Request stop</button>
+</form>
+<p class="muted">These actions only append control files inside this orchestration-run directory. They do not execute commands.</p>
+</section>
+<section><h2>Cycles</h2><ul>{"".join(cycle_links) or "<li>No cycles recorded.</li>"}</ul></section>
+<section><h2>Run Files</h2><p>{route_link('/run?path=' + quote(path_rel), 'Open all readable files')}</p></section>
+{''.join(sections)}
+"""
+        return page("Orchestration Run", body)
+
+    def start_orchestration(self) -> bytes:
+        body = """
+<section><h2>Start Orchestration</h2>
+<div class="warn">This cockpit action creates a request and command preview only. It does not execute Codex, push, merge, or run shell commands.</div>
+<form method="post" action="/orchestration/start">
+  <label>Need intake or Loop state path<br><input name="source_path" size="80" placeholder="task-runs/example-need-intake/need-intake.md"></label><br>
+  <label>Workspace path<br><input name="workspace" size="80" placeholder="task-runs/example/workspace"></label><br>
+  <label>Max cycles<br><input name="max_cycles" value="1"></label><br>
+  <label>Test command<br><input name="test_command" size="80" placeholder="python3 -m unittest discover -s tests"></label><br>
+  <label><input type="checkbox" name="allow_execute_codex"> Allow Codex execution</label><br>
+  <label><input type="checkbox" name="allow_auto_promote"> Allow Logics promotion package</label><br>
+  <label><input type="checkbox" name="allow_generate_prompts"> Allow task prompt generation</label><br>
+  <label><input type="checkbox" name="allow_auto_accept"> Allow auto-accept if checks pass</label><br>
+  <label><input type="checkbox" name="allow_advance"> Allow Loop state advancement evidence</label><br>
+  <label><input type="checkbox" name="allow_auto_push"> Allow controlled auto-push</label><br>
+  <label>Remote<br><input name="remote" value="origin"></label><br>
+  <label>Push branch<br><input name="push_branch" placeholder="integration"></label><br>
+  <label>Instruction<br><textarea name="instruction" rows="4"></textarea></label><br>
+  <button type="submit">Create request</button>
+</form>
+</section>
+"""
+        return page("Start Orchestration", body)
 
     def loop_dashboard(self) -> bytes:
         rows = []

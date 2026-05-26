@@ -23,6 +23,8 @@ Planning for `v0.3` has started in [v0.3 Roadmap](docs/v0.3-roadmap.md). The nex
 
 The v0.3 cockpit can now generate draft-only Logics files from a need intake under `task-runs/` for human review. It does not promote drafts into final `logics/` records.
 
+The first v0.3 end-to-end `orchestration-run` command is available for disposable or reviewed local workflows. It records policy evidence, can execute Codex with explicit authorization, and can delegate controlled auto-push to `controlled_git_flow.sh` for non-protected branches.
+
 ## Execution Modes
 
 Orchestia policy defines Manual mode, Assisted mode, Auto branch mode, and Controlled auto merge mode. Auto push and auto merge are policy-gated for fresh projects or isolated branches; `main` and `master` stay protected by default.
@@ -195,6 +197,8 @@ python3 scripts/orchestia_ui.py
 Open `http://127.0.0.1:8765` to inspect Loop state, auto-loop runs, autonomous-loop runs, task-runs, Logics records, reviews, and debug status. The v0.2-beta cockpit action layer also adds Needs, Loop Dashboard, Iterations, and Tokens pages. It can create draft need intake files and append autonomous-loop instruction or stop request files under `task-runs/`.
 
 For v0.3 planning, the cockpit can also generate Logics draft files from a need intake under `task-runs/*-logics-draft/`. Promotion to final Logics records remains a human review step and future guarded action.
+
+The cockpit also lists orchestration-run evidence and can create an orchestration request with a copyable command preview. It does not execute the orchestration-run from the browser.
 
 The cockpit action layer does not execute Codex, push, merge, run controlled Git flow, or provide arbitrary command execution from the browser.
 

@@ -80,6 +80,16 @@ The draft-only safety model is strict: the cockpit does not write to `logics/`, 
 5. Evidence is written under `task-runs/`.
 6. UI refreshes status and links to cycle evidence.
 
+## End-To-End Orchestration Run
+
+`orchestration-run` is the first global v0.3 runner for chaining a need intake or Loop state into a local run:
+
+need intake -> Logics drafts -> promotion package evidence -> task prompt -> Codex execution -> checks -> review draft -> auto-accept if policy allows -> advancement evidence -> controlled auto-push if policy allows.
+
+The policy is approved up front through explicit flags such as `--execute-codex`, `--auto-promote-logics`, `--auto-generate-task-prompts`, `--auto-accept-if-checks-pass`, `--advance-if-next-ready`, and `--auto-push`.
+
+Auto-push remains guarded by `scripts/controlled_git_flow.sh`. The push branch must be explicit, `main/master` are refused by default, tests must pass, and the workspace must be clean. Merge remains separate because it has a larger blast radius and needs its own explicit target-branch review.
+
 ## Instruction And Stop Flow
 
 - Instructions append to `task-runs/*-autonomous-loop/instructions.md`.

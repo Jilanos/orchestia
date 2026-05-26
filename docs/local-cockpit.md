@@ -33,6 +33,8 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 - New Need: create a draft intake file without writing to Logics.
 - Logics Drafts: generated draft Logics directories under `task-runs/*-logics-draft/`.
 - Logics Draft Detail: summary, manifest, generated draft files, source intake link, and promotion checklist.
+- Orchestration Runs: end-to-end orchestration-run directories under `task-runs/*-orchestration-run/`.
+- Start Orchestration: create an orchestration request and command preview without executing it.
 - Loop Dashboard: compact Loop state status, next action, stop condition, and latest run context.
 - Loops: Loop state files and extracted current task/decision fields.
 - Auto Loop: controlled auto-loop run directories, inferred status, latest event, instructions, stop requests, errors, command previews, and review drafts.
@@ -60,8 +62,10 @@ The first cockpit action layer writes only safe local files:
 
 - need intake drafts under `task-runs/<timestamp>-need-intake/`
 - Logics draft files under `task-runs/<timestamp>-logics-draft/`
+- orchestration request files under `task-runs/<timestamp>-orchestration-request/`
 - autonomous-loop instructions under an existing `task-runs/*-autonomous-loop/`
 - autonomous-loop stop requests under an existing `task-runs/*-autonomous-loop/`
+- orchestration-run instructions and stop requests under an existing `task-runs/*-orchestration-run/`
 
 The action layer does not run arbitrary commands. It does not execute Codex, push, merge, mutate Logics records, or modify project workspaces.
 
@@ -77,6 +81,21 @@ The cockpit can convert a need intake draft into draft-only Logics files:
 The generated directory contains `summary.md`, `manifest.json`, `initial_need_draft.md`, `primary_needs_draft.md`, `request_draft.md`, `backlog_draft.md`, `loop_state_draft.md`, `task_prompt_outline.md`, and `promotion_checklist.md`.
 
 This is a draft-only action. It writes only under `task-runs/`, requires a source under `task-runs/*-need-intake/`, and does not promote anything into final `logics/` records. Human review is required before any future manual or guarded promotion.
+
+## Orchestration Run Views
+
+The cockpit lists end-to-end orchestration evidence at `/orchestration-runs` and shows a detail page at `/orchestration-run?path=...`.
+
+Each detail page shows:
+
+- summary and policy
+- status, cycles, latest decision, push status, and human action required
+- events and errors
+- links to cycle evidence
+- links to review, prompt, Logics draft, advancement, and Git-flow evidence
+- safe forms to append instructions or request stop
+
+`/orchestration/start` creates a request directory under `task-runs/*-orchestration-request/` with `request.md` and `command-preview.md`. It does not execute Codex, run shell commands, push, merge, or modify workspaces from the browser.
 
 ## What It Does Not Do
 
