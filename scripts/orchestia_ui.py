@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import html
 import os
+import re
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +18,7 @@ from urllib.parse import parse_qs, quote, unquote, urlparse
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 MAX_TEXT_BYTES = 200 * 1024
+MAX_POST_BYTES = 64 * 1024
 
 LOGICS_GROUPS = [
     ("Initial needs", "logics/initial-needs"),
@@ -149,6 +151,20 @@ def rel(repo: Path, path: Path) -> str:
     return path.resolve().relative_to(repo).as_posix()
 
 
+def utc_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def utc_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def first_value(data: dict[str, list[str]], name: str, limit: int = 8000) -> str:
+    value = data.get(name, [""])[0]
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+    return value[:limit].strip()
+
+
 def file_link(repo: Path, path: Path, label: str | None = None) -> str:
     path_rel = rel(repo, path)
     text = label or path.name
@@ -254,6 +270,37 @@ def autonomous_loop_dirs(repo: Path) -> list[Path]:
     )
 
 
+def need_intake_dirs(repo: Path) -> list[Path]:
+    root = repo / "task-runs"
+    if not root.exists():
+        return []
+    return sorted(
+        (path for path in root.glob("*-need-intake") if path.is_dir() and not path.name.startswith(".")),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+
+
+def task_run_dirs(repo: Path, suffix: str | None = None) -> list[Path]:
+    root = repo / "task-runs"
+    if not root.exists():
+        return []
+    dirs = [path for path in root.glob("*") if path.is_dir() and not path.name.startswith(".")]
+    if suffix:
+        dirs = [path for path in dirs if path.name.endswith(suffix)]
+    return sorted(dirs, key=lambda path: path.name, reverse=True)
+
+
+def validate_task_run_dir(repo: Path, rel_path: str, suffix: str) -> Path:
+    path = safe_join(repo, rel_path)
+    path_rel = rel(repo, path)
+    if not path.exists() or not path.is_dir():
+        raise ValueError("run directory not found")
+    if is_hidden_or_git(path, repo) or not path_rel.startswith("task-runs/") or not path.name.endswith(suffix):
+        raise ValueError(f"only task-runs/*{suffix} directories are allowed")
+    return path
+
+
 def optional_text(path: Path, limit: int = 8000) -> str:
     if not path.exists() or not path.is_file():
         return ""
@@ -353,16 +400,74 @@ def human_action_required_for_autonomous_loop(run_dir: Path) -> bool:
     return autonomous_loop_status(run_dir) in {"blocked", "error", "tests_failed", "codex_failed", "waiting_for_decision", "stopped"}
 
 
+TOKEN_PATTERNS = {
+    "total": re.compile(r"(?:total(?:[_ -]?tokens)?|tokens)[=:]?\s*([0-9][0-9,]*)", re.IGNORECASE),
+    "input": re.compile(r"(?:input|prompt)(?:[_ -]?tokens)?[=:]?\s*([0-9][0-9,]*)", re.IGNORECASE),
+    "output": re.compile(r"(?:output|completion)(?:[_ -]?tokens)?[=:]?\s*([0-9][0-9,]*)", re.IGNORECASE),
+    "reasoning": re.compile(r"reasoning(?:[_ -]?tokens)?[=:]?\s*([0-9][0-9,]*)", re.IGNORECASE),
+    "cached": re.compile(r"cached(?:[_ -]?tokens)?[=:]?\s*([0-9][0-9,]*)", re.IGNORECASE),
+}
+
+
+def parse_token_usage(text: str) -> dict[str, int]:
+    if "token" not in text.lower() and "reasoning" not in text.lower() and "cached" not in text.lower():
+        return {}
+    usage: dict[str, int] = {}
+    for key, pattern in TOKEN_PATTERNS.items():
+        matches = pattern.findall(text)
+        if matches:
+            try:
+                usage[key] = max(int(match.replace(",", "")) for match in matches)
+            except ValueError:
+                continue
+    return usage
+
+
+def token_candidate_files(repo: Path) -> list[Path]:
+    root = repo / "task-runs"
+    if not root.exists():
+        return []
+    candidates = []
+    wanted_suffixes = {".txt", ".md", ".log"}
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in wanted_suffixes:
+            continue
+        if is_hidden_or_git(path, repo) or is_secret_like(path):
+            continue
+        name = path.name.lower()
+        parent = path.parent.name.lower()
+        if any(part in name or part in parent for part in ("stdout", "stderr", "evidence", "summary", "state", "review", "codex", "token")):
+            if path.stat().st_size <= MAX_TEXT_BYTES:
+                candidates.append(path)
+    return sorted(candidates, key=lambda item: rel(repo, item))
+
+
+def collect_token_usage(repo: Path) -> tuple[list[dict[str, object]], list[Path]]:
+    rows: list[dict[str, object]] = []
+    without_data: list[Path] = []
+    for path in token_candidate_files(repo):
+        text = optional_text(path, MAX_TEXT_BYTES)
+        usage = parse_token_usage(text)
+        if usage:
+            rows.append({"path": path, "usage": usage})
+        else:
+            without_data.append(path)
+    return rows, without_data
+
+
 def page(title: str, body: str) -> bytes:
     nav = "".join(
         [
             route_link("/", "Dashboard"),
-            route_link("/loops", "Loops"),
+            route_link("/needs", "Needs"),
+            route_link("/loop-dashboard", "Loop Dashboard"),
             route_link("/auto-loop", "Auto Loop"),
             route_link("/autonomous-loop", "Autonomous"),
+            route_link("/iterations", "Iterations"),
+            route_link("/tokens", "Tokens"),
             route_link("/runs", "Runs"),
-            route_link("/logics", "Logics"),
             route_link("/reviews", "Reviews"),
+            route_link("/logics", "Logics"),
             route_link("/debug", "Debug"),
         ]
     )
@@ -410,19 +515,56 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {fmt % args}")
 
     def do_POST(self) -> None:  # noqa: N802
-        self.send_error(405, "This read-only cockpit does not support POST actions.")
+        parsed = urlparse(self.path)
+        routes = {
+            "/needs/create": self.create_need,
+            "/actions/autonomous-loop-instruct": self.autonomous_loop_instruct_action,
+            "/actions/autonomous-loop-stop": self.autonomous_loop_stop_action,
+        }
+        handler = routes.get(parsed.path)
+        if handler is None:
+            self.send_error(404, "Action not found")
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self.send_error(400, "Invalid content length")
+            return
+        if length > MAX_POST_BYTES:
+            self.send_error(413, "POST body too large")
+            return
+        raw = self.rfile.read(length).decode("utf-8", errors="replace")
+        data = parse_qs(raw, keep_blank_values=True)
+        try:
+            content = handler(data)
+        except Exception as exc:  # noqa: BLE001 - return safe error page.
+            content = page("Action error", f"<section><h2>Action error</h2><div class=\"warn\">{esc(exc)}</div></section>")
+            self.send_response(400)
+        else:
+            self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(content)
 
     def do_GET(self) -> None:  # noqa: N802
         parsed = urlparse(self.path)
         query = parse_qs(parsed.query)
         routes = {
             "/": self.dashboard,
+            "/needs": self.needs,
+            "/needs/new": self.new_need,
+            "/need-intake": lambda: self.need_intake_detail(query),
             "/loops": self.loops,
+            "/loop-dashboard": self.loop_dashboard,
             "/loop": lambda: self.loop_detail(query),
             "/auto-loop": self.auto_loop,
             "/auto-loop-run": lambda: self.auto_loop_run(query),
             "/autonomous-loop": self.autonomous_loop,
             "/autonomous-loop-run": lambda: self.autonomous_loop_run(query),
+            "/iterations": self.iterations,
+            "/iteration": lambda: self.iteration_detail(query),
+            "/tokens": self.tokens,
             "/runs": self.runs,
             "/run": lambda: self.run_detail(query),
             "/file": lambda: self.file_view(query),
@@ -445,6 +587,100 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(content)
+
+    def create_need(self, data: dict[str, list[str]]) -> bytes:
+        title = first_value(data, "title", 300)
+        if not title:
+            raise ValueError("title is required")
+        intake_dir = self.repo / "task-runs" / f"{utc_timestamp()}-need-intake"
+        intake_dir.mkdir(parents=True, exist_ok=False)
+        intake_file = intake_dir / "need-intake.md"
+        content = f"""# Need Intake Draft
+
+## Metadata
+
+- Source: cockpit
+- Created: {utc_iso()}
+- Draft path: `{rel(self.repo, intake_file)}`
+
+## Title
+
+{title}
+
+## Description
+
+{first_value(data, "description")}
+
+## Constraints
+
+{first_value(data, "constraints")}
+
+## Non-Goals
+
+{first_value(data, "non_goals")}
+
+## Preferred Project Path
+
+{first_value(data, "preferred_project_path", 1000)}
+
+## Notes
+
+{first_value(data, "notes")}
+
+## Suggested Next Step
+
+Review this draft, then create final Logics records through the normal planning workflow. This cockpit action intentionally does not write to `logics/`.
+"""
+        intake_file.write_text(content, encoding="utf-8")
+        path_rel = rel(self.repo, intake_file)
+        body = f"""
+<section><h2>Need intake draft created</h2>
+<div class="ok">Draft written under task-runs. No Logics records were created.</div>
+<p><strong>Draft:</strong> <a href="/need-intake?path={quote(path_rel)}">{esc(path_rel)}</a></p>
+<h3>Suggested next step</h3>
+<pre>{esc('Review the draft, then create IN/PN/REQ/BL/TASK records through the documented Logics workflow.')}</pre>
+</section>
+"""
+        return page("Need intake created", body)
+
+    def autonomous_loop_instruct_action(self, data: dict[str, list[str]]) -> bytes:
+        run_rel = first_value(data, "run_path", 1000)
+        instruction = first_value(data, "instruction", 8000)
+        if not instruction:
+            raise ValueError("instruction text is required")
+        run_dir = validate_task_run_dir(self.repo, run_rel, "-autonomous-loop")
+        target = run_dir / "instructions.md"
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(f"\n## {utc_iso()}\n{instruction}\n")
+        events = run_dir / "events.log"
+        with events.open("a", encoding="utf-8") as handle:
+            handle.write(f"{utc_iso()} cockpit instruction appended\n")
+        return self.action_result("Instruction appended", target, "No command was executed and no project workspace was modified.")
+
+    def autonomous_loop_stop_action(self, data: dict[str, list[str]]) -> bytes:
+        run_rel = first_value(data, "run_path", 1000)
+        reason = first_value(data, "stop_reason", 8000)
+        if not reason:
+            raise ValueError("stop reason is required")
+        run_dir = validate_task_run_dir(self.repo, run_rel, "-autonomous-loop")
+        target = run_dir / "stop-request.md"
+        with target.open("a", encoding="utf-8") as handle:
+            handle.write(f"\n## {utc_iso()}\n{reason}\n")
+        events = run_dir / "events.log"
+        with events.open("a", encoding="utf-8") as handle:
+            handle.write(f"{utc_iso()} cockpit stop requested\n")
+        return self.action_result("Stop request recorded", target, "No command was executed and no project workspace was modified.")
+
+    def action_result(self, title: str, target: Path, note: str) -> bytes:
+        target_rel = rel(self.repo, target)
+        body = f"""
+<section><h2>{esc(title)}</h2>
+<div class="ok">{esc(note)}</div>
+<p><strong>File:</strong> {file_link(self.repo, target, target_rel)}</p>
+<p>{route_link('/autonomous-loop', 'Back to autonomous-loop runs')}</p>
+</section>
+"""
+        return page(title, body)
 
     def dashboard(self) -> bytes:
         repo = self.repo
@@ -530,9 +766,13 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 <section>
   <h2>Main sections</h2>
   <ul>
+    <li>{route_link('/needs', 'Needs')}</li>
+    <li>{route_link('/loop-dashboard', 'Loop Dashboard')}</li>
     <li>{route_link('/loops', 'Loop states')}</li>
     <li>{route_link('/auto-loop', 'Auto-loop runs')}</li>
     <li>{route_link('/autonomous-loop', 'Autonomous-loop runs')}</li>
+    <li>{route_link('/iterations', 'Iterations')}</li>
+    <li>{route_link('/tokens', 'Tokens')}</li>
     <li>{route_link('/runs', 'task-runs reports')}</li>
     <li>{route_link('/logics', 'Logics files')}</li>
     <li>{route_link('/reviews', 'Reviews')}</li>
@@ -541,6 +781,116 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 </section>
 """
         return page("Dashboard", body)
+
+    def needs(self) -> bytes:
+        intake_rows = []
+        for path in need_intake_dirs(self.repo):
+            intake_file = path / "need-intake.md"
+            title = "Untitled"
+            if intake_file.exists():
+                title = field_value(optional_text(intake_file), ["title"])
+                if title == "None":
+                    title = path.name
+            path_rel = rel(self.repo, intake_file)
+            intake_rows.append(
+                "<tr>"
+                f'<td><a href="/need-intake?path={quote(path_rel)}">{esc(title)}</a></td>'
+                f"<td>{esc(path.name)}</td>"
+                "<td>draft</td>"
+                "</tr>"
+            )
+        initial_rows = []
+        for path in list_markdown(self.repo / "logics/initial-needs"):
+            text = read_text_file(path)
+            initial_rows.append(
+                "<tr>"
+                f"<td>{file_link(self.repo, path)}</td>"
+                f"<td>{esc(field_value(text, ['status']))}</td>"
+                "<td>Logics</td>"
+                "</tr>"
+            )
+        body = f"""
+<section><h2>Needs</h2>
+<p>{route_link('/needs/new', 'Create draft need intake')}</p>
+</section>
+<section><h2>Draft need intakes</h2>
+<table><thead><tr><th>Title</th><th>Directory</th><th>Type</th></tr></thead><tbody>{"".join(intake_rows) or '<tr><td colspan="3">No intake drafts found.</td></tr>'}</tbody></table>
+</section>
+<section><h2>Initial needs</h2>
+<table><thead><tr><th>File</th><th>Status</th><th>Type</th></tr></thead><tbody>{"".join(initial_rows) or '<tr><td colspan="3">No initial needs found.</td></tr>'}</tbody></table>
+</section>
+"""
+        return page("Needs", body)
+
+    def new_need(self) -> bytes:
+        body = """
+<section><h2>New Need Intake</h2>
+<p class="muted">This creates a draft under task-runs only. It does not create final Logics records.</p>
+<form method="post" action="/needs/create">
+  <p><label>Initial need title<br><input name="title" required style="width:100%;max-width:720px"></label></p>
+  <p><label>Description<br><textarea name="description" rows="7" style="width:100%;max-width:900px"></textarea></label></p>
+  <p><label>Constraints<br><textarea name="constraints" rows="4" style="width:100%;max-width:900px"></textarea></label></p>
+  <p><label>Non-goals<br><textarea name="non_goals" rows="4" style="width:100%;max-width:900px"></textarea></label></p>
+  <p><label>Preferred project path<br><input name="preferred_project_path" style="width:100%;max-width:720px"></label></p>
+  <p><label>Notes<br><textarea name="notes" rows="4" style="width:100%;max-width:900px"></textarea></label></p>
+  <p><button type="submit">Create draft intake</button></p>
+</form>
+</section>
+"""
+        return page("New Need", body)
+
+    def need_intake_detail(self, query: dict[str, list[str]]) -> bytes:
+        path = safe_join(self.repo, query.get("path", [""])[0])
+        path_rel = rel(self.repo, path)
+        if not path_rel.startswith("task-runs/") or not path_rel.endswith("/need-intake.md"):
+            return page("Need intake blocked", '<section><div class="warn">Only task-runs/*-need-intake/need-intake.md files are shown here.</div></section>')
+        allowed, reason = safe_file_allowed(path, self.repo)
+        if not allowed:
+            return page("Need intake blocked", f'<section><div class="warn">{esc(reason)}</div></section>')
+        text = read_text_file(path)
+        body = f"""
+<section><h2>{esc(path_rel)}</h2>
+<p>{route_link('/needs', 'Back to needs')}</p>
+<pre>{esc(text)}</pre>
+</section>
+<section><h2>Suggested next step</h2>
+<pre>{esc('Create final Logics records from this draft only after human review.')}</pre>
+</section>
+"""
+        return page("Need Intake", body)
+
+    def loop_dashboard(self) -> bytes:
+        rows = []
+        for path in list_markdown(self.repo / "logics/loop-states"):
+            text = read_text_file(path)
+            fields = loop_fields(text)
+            status = field_value(text, ["status"])
+            latest_auto = auto_loop_dirs(self.repo)[0].name if auto_loop_dirs(self.repo) else "None"
+            latest_autonomous = autonomous_loop_dirs(self.repo)[0].name if autonomous_loop_dirs(self.repo) else "None"
+            if "complete" in status.lower() or "complete" in fields["stop_condition"].lower():
+                human_required = "no"
+            else:
+                human_required = "yes" if fields["next_action"] != "None" else "no"
+            rows.append(
+                "<tr>"
+                f"<td>{file_link(self.repo, path)}</td>"
+                f"<td>{esc(status)}</td>"
+                f"<td>{esc(fields['current_primary_need'])}</td>"
+                f"<td>{esc(fields['current_task'])}</td>"
+                f"<td>{esc(fields['next_action'])}</td>"
+                f"<td>{esc(fields['stop_condition'])}</td>"
+                f"<td>{esc(fields['last_review'])}</td>"
+                f"<td>{esc(latest_auto)}</td>"
+                f"<td>{esc(latest_autonomous)}</td>"
+                f"<td>{esc(human_required)}</td>"
+                "</tr>"
+            )
+        body = f"""
+<section><h2>Loop Dashboard</h2>
+<table><thead><tr><th>Loop state</th><th>Status</th><th>Primary need</th><th>Task</th><th>Next action</th><th>Stop condition</th><th>Last review</th><th>Latest auto-loop</th><th>Latest autonomous-loop</th><th>Human action</th></tr></thead><tbody>{"".join(rows) or '<tr><td colspan="10">No Loop states found.</td></tr>'}</tbody></table>
+</section>
+"""
+        return page("Loop Dashboard", body)
 
     def loops(self) -> bytes:
         repo = self.repo
@@ -740,11 +1090,18 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
             latest_codex = optional_text(latest_cycle / "codex-exit-code.txt").strip() or "not run"
             latest_test = optional_text(latest_cycle / "test-exit-code.txt").strip() or "not run"
             latest_decision = optional_text(latest_cycle / "decision.md").strip() or latest_decision
+        run_token_rows = []
+        for token_file in sorted(path.rglob("*")):
+            if token_file.is_file() and token_file.suffix.lower() in {".txt", ".md", ".log"} and token_file.stat().st_size <= MAX_TEXT_BYTES:
+                usage = parse_token_usage(optional_text(token_file, MAX_TEXT_BYTES))
+                if usage:
+                    usage_text = ", ".join(f"{key}={value}" for key, value in sorted(usage.items()))
+                    run_token_rows.append(f"<li>{file_link(self.repo, token_file, rel(self.repo, token_file))}: {esc(usage_text)}</li>")
+        token_html = "<ul>" + "".join(run_token_rows) + "</ul>" if run_token_rows else '<p class="muted">Token usage not available for this run.</p>'
 
         action = '<div class="warn">Human action required.</div>' if human_action_required_for_autonomous_loop(path) else '<div class="ok">No immediate human action detected.</div>'
         rerun_cmd = "bash scripts/orchestia_loop.sh autonomous-loop <loop-state> --workspace <workspace> --max-cycles 1"
-        stop_cmd = f"printf '%s\\n' 'Stop reason' >> {path_rel}/stop-request.md"
-        instruct_cmd = f"printf '%s\\n' 'Instruction text' >> {path_rel}/instructions.md"
+        status_cmd = f"bash scripts/orchestia_loop.sh autonomous-loop-status {path_rel}"
         review_link = "None"
         if latest_cycle and (latest_cycle / "review-draft.md").exists():
             review_link = file_link(self.repo, latest_cycle / "review-draft.md", "open latest review draft")
@@ -784,11 +1141,26 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 <p>{route_link('/autonomous-loop', 'Back to autonomous-loop runs')}</p>
 </section>
 <section><h2>Copyable command previews</h2>
-<pre>{esc(rerun_cmd)}
-{esc(instruct_cmd)}
-{esc(stop_cmd)}</pre>
+<pre>{esc(status_cmd)}
+{esc(rerun_cmd)}</pre>
 <p><strong>Latest review draft:</strong> {review_link}</p>
-<p class="muted">The cockpit does not execute commands, push, merge, or modify Loop state.</p>
+<p class="muted">The cockpit does not execute Codex, push, merge, or modify Loop state.</p>
+</section>
+<section><h2>Safe controls</h2>
+<form method="post" action="/actions/autonomous-loop-instruct">
+  <input type="hidden" name="run_path" value="{esc(path_rel)}">
+  <p><label>Instruction<br><textarea name="instruction" rows="4" style="width:100%;max-width:900px"></textarea></label></p>
+  <p><button type="submit">Append instruction</button></p>
+</form>
+<form method="post" action="/actions/autonomous-loop-stop">
+  <input type="hidden" name="run_path" value="{esc(path_rel)}">
+  <p><label>Stop reason<br><textarea name="stop_reason" rows="4" style="width:100%;max-width:900px"></textarea></label></p>
+  <p><button type="submit">Request stop</button></p>
+</form>
+<p class="muted">These actions only append files inside this autonomous-loop run directory.</p>
+</section>
+<section><h2>Token usage evidence</h2>
+{token_html}
 </section>
 <section><h2>Cycles</h2><ul>{cycle_links or '<li>No cycle directories.</li>'}</ul></section>
 {section('Autonomous-loop state', path / 'autonomous-loop-state.md')}
@@ -800,6 +1172,107 @@ class OrchestiaHandler(BaseHTTPRequestHandler):
 {section('Latest cycle files', latest_cycle)}
 """
         return page("Autonomous-loop run", body)
+
+    def iterations(self) -> bytes:
+        items: list[tuple[str, str, Path, str, str]] = []
+        for path in task_run_dirs(self.repo):
+            kind = infer_run_type(path)
+            status = "present"
+            decision_value = "None"
+            if kind == "auto-loop":
+                status = auto_loop_status(path)
+                decision_value = auto_loop_field(path, ["decision"])
+            elif kind == "autonomous-loop":
+                status = autonomous_loop_status(path)
+                decision_value = autonomous_loop_field(path, ["latest decision"])
+            elif (path / "evidence.md").exists():
+                status = field_value(optional_text(path / "evidence.md"), ["final result"])
+            items.append((path.name[:16], kind, path, status, decision_value))
+        for path in list_markdown(self.repo / "logics/reviews"):
+            items.append((path.name, "review", path, "recorded", review_decision(read_text_file(path))))
+        for path in list_markdown(self.repo / "logics/tasks"):
+            items.append((path.name, "task", path, field_value(read_text_file(path), ["status"]), "None"))
+        items.sort(key=lambda item: item[0], reverse=True)
+        rows = []
+        for _, kind, path, status, decision_value in items[:250]:
+            path_rel = rel(self.repo, path)
+            href = "/iteration?path=" + quote(path_rel)
+            task = "None"
+            if path.is_file():
+                task = field_value(read_text_file(path), ["reviewed task", "related task", "id"])
+            rows.append(
+                "<tr>"
+                f'<td><a href="{esc(href)}">{esc(path.name)}</a></td>'
+                f"<td>{esc(kind)}</td>"
+                f"<td>{esc(task)}</td>"
+                f"<td>{esc(decision_value)}</td>"
+                f"<td>{esc(status)}</td>"
+                f"<td>{esc(path_rel)}</td>"
+                "</tr>"
+            )
+        body = f"""
+<section><h2>Iteration Timeline</h2>
+<p class="muted">Inferred from task-runs, reviews, and task records. Newest timestamp-like entries appear first.</p>
+<table><thead><tr><th>Item</th><th>Type</th><th>Related task</th><th>Decision</th><th>Status</th><th>Evidence</th></tr></thead><tbody>{"".join(rows) or '<tr><td colspan="6">No iterations found.</td></tr>'}</tbody></table>
+</section>
+"""
+        return page("Iterations", body)
+
+    def iteration_detail(self, query: dict[str, list[str]]) -> bytes:
+        path = safe_join(self.repo, query.get("path", [""])[0])
+        path_rel = rel(self.repo, path)
+        if path.is_dir():
+            if not path_rel.startswith("task-runs/") or is_hidden_or_git(path, self.repo):
+                return page("Iteration blocked", '<section><div class="warn">Only task-runs directories are shown here.</div></section>')
+            return self.run_detail({"path": [path_rel]})
+        allowed, reason = safe_file_allowed(path, self.repo)
+        if not allowed:
+            return page("Iteration blocked", f'<section><div class="warn">{esc(reason)}</div></section>')
+        text = read_text_file(path)
+        body = f"""
+<section><h2>{esc(path_rel)}</h2>
+<p>{route_link('/iterations', 'Back to iterations')}</p>
+<pre>{esc(text)}</pre>
+</section>
+"""
+        return page("Iteration", body)
+
+    def tokens(self) -> bytes:
+        rows, without_data = collect_token_usage(self.repo)
+        totals: dict[str, int] = {}
+        for row in rows:
+            usage = row["usage"]
+            assert isinstance(usage, dict)
+            for key, value in usage.items():
+                totals[key] = totals.get(key, 0) + int(value)
+        total_text = ", ".join(f"{key}: {value}" for key, value in sorted(totals.items())) if totals else "not available"
+        token_rows = []
+        for row in rows:
+            path = row["path"]
+            usage = row["usage"]
+            assert isinstance(path, Path)
+            assert isinstance(usage, dict)
+            usage_text = ", ".join(f"{key}={value}" for key, value in sorted(usage.items()))
+            token_rows.append(
+                "<tr>"
+                f"<td>{file_link(self.repo, path, rel(self.repo, path))}</td>"
+                f"<td>{esc(usage_text)}</td>"
+                "</tr>"
+            )
+        missing_rows = "".join(f"<li>{esc(rel(self.repo, path))}</li>" for path in without_data[:100])
+        body = f"""
+<section><h2>Token Usage Evidence</h2>
+<p><strong>Total known tokens:</strong> {esc(total_text)}</p>
+<p class="muted">Totals are shown only when parseable token evidence exists in local task-runs text files. No billing APIs are called and missing usage is not invented.</p>
+</section>
+<section><h2>Runs with token data</h2>
+<table><thead><tr><th>Evidence file</th><th>Parsed usage</th></tr></thead><tbody>{"".join(token_rows) or '<tr><td colspan="2">No token usage evidence found.</td></tr>'}</tbody></table>
+</section>
+<section><h2>Scanned files without token data</h2>
+<ul>{missing_rows or '<li>not available</li>'}</ul>
+</section>
+"""
+        return page("Tokens", body)
 
     def runs(self) -> bytes:
         root = self.repo / "task-runs"

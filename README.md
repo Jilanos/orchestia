@@ -188,7 +188,9 @@ Start the local cockpit:
 python3 scripts/orchestia_ui.py
 ```
 
-Open `http://127.0.0.1:8765` to inspect Loop state, auto-loop runs, autonomous-loop runs, task-runs, Logics records, reviews, and debug status. The local cockpit is read-only and includes auto-loop and autonomous-loop views with status, human action required, cycle evidence, and copyable commands.
+Open `http://127.0.0.1:8765` to inspect Loop state, auto-loop runs, autonomous-loop runs, task-runs, Logics records, reviews, and debug status. The v0.2-beta cockpit action layer also adds Needs, Loop Dashboard, Iterations, and Tokens pages. It can create draft need intake files and append autonomous-loop instruction or stop request files under `task-runs/`.
+
+The cockpit action layer does not execute Codex, push, merge, run controlled Git flow, or provide arbitrary command execution from the browser.
 
 Inspect or dry-run controlled Git flow automation:
 

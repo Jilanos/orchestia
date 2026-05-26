@@ -17,6 +17,7 @@ usage:
   scripts/orchestia_loop.sh auto-loop-status task-runs/<dir>-auto-loop
   scripts/orchestia_loop.sh auto-loop-instruct task-runs/<dir>-auto-loop "<instruction>"
   scripts/orchestia_loop.sh auto-loop-stop task-runs/<dir>-auto-loop "<reason>"
+  scripts/orchestia_loop.sh autonomous-loop-status task-runs/<dir>-autonomous-loop
 EOF
 }
 
@@ -1175,6 +1176,19 @@ require_auto_loop_dir() {
   [ -d "$run_dir" ] || fail "auto-loop directory not found: $run_dir"
 }
 
+require_autonomous_loop_dir() {
+  run_dir="$1"
+  [ -n "$run_dir" ] || fail "missing autonomous-loop run directory"
+  case "$run_dir" in
+    task-runs/*-autonomous-loop) ;;
+    *) fail "autonomous-loop directory must be under task-runs/ and end with -autonomous-loop" ;;
+  esac
+  case "$run_dir" in
+    *..*) fail "autonomous-loop directory must not contain '..'" ;;
+  esac
+  [ -d "$run_dir" ] || fail "autonomous-loop directory not found: $run_dir"
+}
+
 append_auto_event() {
   run_dir="$1"
   message="$2"
@@ -1795,6 +1809,50 @@ command_auto_loop_stop() {
   echo "Stop request recorded: $run_dir/stop-request.md"
 }
 
+command_autonomous_loop_status() {
+  run_dir="$1"
+  require_autonomous_loop_dir "$run_dir"
+  echo "Autonomous-loop run: $run_dir"
+  if [ -f "$run_dir/autonomous-loop-state.md" ]; then
+    echo
+    sed -n '1,100p' "$run_dir/autonomous-loop-state.md"
+  fi
+  echo
+  echo "Summary:"
+  if [ -f "$run_dir/summary.md" ]; then
+    sed -n '1,80p' "$run_dir/summary.md"
+  else
+    echo "None"
+  fi
+  echo
+  echo "Latest events:"
+  if [ -f "$run_dir/events.log" ]; then
+    tail -20 "$run_dir/events.log"
+  else
+    echo "None"
+  fi
+  echo
+  echo "Errors:"
+  if [ -f "$run_dir/errors.md" ]; then
+    sed -n '1,80p' "$run_dir/errors.md"
+  else
+    echo "None"
+  fi
+  echo
+  echo "Cycles:"
+  find "$run_dir" -maxdepth 1 -type d -name 'cycle-*' | sort | sed 's/^/- /' || true
+  if [ -f "$run_dir/stop-request.md" ]; then
+    echo
+    echo "Stop request:"
+    sed -n '1,40p' "$run_dir/stop-request.md"
+  fi
+  if [ -f "$run_dir/instructions.md" ]; then
+    echo
+    echo "Instructions:"
+    sed -n '1,40p' "$run_dir/instructions.md"
+  fi
+}
+
 append_autonomous_event() {
   run_dir="$1"
   message="$2"
@@ -2266,6 +2324,11 @@ main() {
     run_dir="$1"
     shift
     command_auto_loop_stop "$run_dir" "$@"
+    exit 0
+  fi
+  if [ "$command_name" = "autonomous-loop-status" ]; then
+    [ "$#" -eq 2 ] || fail "autonomous-loop-status requires one autonomous-loop run directory"
+    command_autonomous_loop_status "$2"
     exit 0
   fi
 

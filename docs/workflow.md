@@ -114,13 +114,24 @@ Human control remains required for ambiguous next primary needs, firm blockers, 
 
 ## Local Cockpit
 
-The local cockpit is `scripts/orchestia_ui.py`, a read-only HTML interface for inspecting repository state, Loop state, `task-runs/`, Logics records, reviews, and debug status:
+The local cockpit is `scripts/orchestia_ui.py`, a local HTML interface for inspecting repository state, Loop state, `task-runs/`, Logics records, reviews, and debug status:
 
 ```bash
 python3 scripts/orchestia_ui.py
 ```
 
-Open `http://127.0.0.1:8765`. In this version the cockpit does not execute Codex, push, merge, update Loop state, create reviews, or write to Logics. It shows auto-loop and autonomous-loop runs, human action required, command previews, cycle evidence, instructions, stop requests, and review drafts. Execution remains through the CLI scripts.
+Open `http://127.0.0.1:8765`. The v0.2-beta cockpit action layer supports a cockpit-first workflow:
+
+1. Enter a need at `/needs/new`.
+2. Create a draft intake under `task-runs/`.
+3. Review the draft and prepare Logics records through the normal workflow.
+4. Run auto-loop or autonomous-loop from the CLI when execution is explicitly authorized.
+5. Monitor iterations through `/loop-dashboard`, `/iterations`, `/auto-loop`, and `/autonomous-loop`.
+6. Inspect token evidence through `/tokens` when local token usage is present.
+7. Add instructions or request stop for autonomous-loop runs from the run page.
+8. Review evidence and record decisions in Logics.
+
+The cockpit action layer does not execute Codex, push, merge, update Loop state, create reviews, or write final Logics records. It writes only safe drafts and autonomous-loop control files under `task-runs/`.
 
 ## Controlled Git Flow
 

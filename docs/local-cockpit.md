@@ -2,9 +2,9 @@
 
 ## Purpose
 
-The local cockpit is a small read-only HTML interface for inspecting Orchestia repository state, Loop state files, Logics records, reviews, and local `task-runs/` evidence.
+The local cockpit is a small local HTML interface for inspecting Orchestia repository state, Loop state files, Logics records, reviews, and local `task-runs/` evidence.
 
-It is intended for local situational awareness only. Execution remains in the CLI scripts.
+It is intended for local situational awareness and narrow safe actions only. Codex execution, push, merge, and Loop state advancement remain in the CLI scripts.
 
 ## Start
 
@@ -29,9 +29,14 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 ## Pages
 
 - Dashboard: repository path, branch, Git status, latest commit, counts, and warnings.
+- Needs: draft need intakes under `task-runs/` and existing initial needs.
+- New Need: create a draft intake file without writing to Logics.
+- Loop Dashboard: compact Loop state status, next action, stop condition, and latest run context.
 - Loops: Loop state files and extracted current task/decision fields.
 - Auto Loop: controlled auto-loop run directories, inferred status, latest event, instructions, stop requests, errors, command previews, and review drafts.
-- Autonomous Loop: autonomous local loop run directories, cycle count, latest decision, latest errors, cycle evidence, and human action required status.
+- Autonomous Loop: autonomous local loop run directories, cycle count, latest decision, latest errors, cycle evidence, safe instruction/stop actions, token evidence, and human action required status.
+- Iterations: inferred timeline across task-runs, reviews, and tasks.
+- Tokens: evidence-based token usage parsing when local token data is present.
 - Runs: local `task-runs/` directories and readable evidence files.
 - Logics: grouped Logics Markdown records.
 - Reviews: review files and extracted decisions.
@@ -46,6 +51,16 @@ python3 scripts/orchestia_ui.py --host 127.0.0.1 --port 8765 --repo .
 - `task-runs/*-auto-loop/`
 - selected repository documentation and text files through safe links
 - Git status and recent commits through read-only Git commands
+
+## Action Model
+
+The first cockpit action layer writes only safe local files:
+
+- need intake drafts under `task-runs/<timestamp>-need-intake/`
+- autonomous-loop instructions under an existing `task-runs/*-autonomous-loop/`
+- autonomous-loop stop requests under an existing `task-runs/*-autonomous-loop/`
+
+The action layer does not run arbitrary commands. It does not execute Codex, push, merge, mutate Logics records, or modify project workspaces.
 
 ## What It Does Not Do
 
@@ -114,7 +129,11 @@ Each autonomous-loop detail page shows:
 - links to per-cycle evidence files
 - copyable command previews for rerun, instruction, and stop-request creation
 
-The cockpit remains read-only. It does not execute the autonomous loop, write instructions, create stop requests, push, merge, or update Loop state from the browser.
+The cockpit can append instructions and stop requests for an existing autonomous-loop run. It does not execute the autonomous loop, push, merge, or update Loop state from the browser.
+
+## Token Usage View
+
+The Tokens page scans local `task-runs/` text evidence for token usage patterns. It shows totals only when values are parseable and shows not available when no token evidence exists. It does not call billing APIs or infer missing usage.
 
 ## Safety Boundaries
 
@@ -130,9 +149,9 @@ The cockpit remains read-only. It does not execute the autonomous loop, write in
 - Markdown is shown as text, not fully rendered.
 - Parsing is label-based and intentionally simple.
 - There is no authentication layer.
-- There are no write actions or workflow buttons.
-- Auto-loop controls are copyable CLI commands, not browser-executed actions.
-- Autonomous-loop controls are copyable CLI commands, not browser-executed actions.
+- Write actions are limited to need drafts, autonomous-loop instructions, and autonomous-loop stop requests under `task-runs/`.
+- Auto-loop controls remain copyable CLI commands, not browser-executed actions.
+- Autonomous-loop execution remains CLI-driven.
 - Large or binary evidence files are skipped.
 
 ## Next Possible Improvements

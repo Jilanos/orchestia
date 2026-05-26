@@ -54,6 +54,8 @@ Real mini project autonomous-loop validation has completed the local `job-offer-
 
 The controlled publication retry for `job-offer-analyzer` succeeded after GitHub CLI authentication was repaired. The repository `https://github.com/Jilanos/job-offer-analyzer` now has `integration` published at `96efb67 Add validation and documentation`; `main` and `master` were not pushed.
 
+v0.2-beta readiness is documented in [v0.2-beta Readiness](v0.2-beta-readiness.md). The first cockpit action layer has started, adding draft need intake, Loop dashboard, iteration timeline, token usage evidence, and safe autonomous-loop instruction/stop controls while keeping Codex execution, push, and merge out of the browser.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
