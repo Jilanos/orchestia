@@ -52,6 +52,8 @@ Real mini project autonomous-loop validation has run against `job-offer-analyzer
 
 Real mini project autonomous-loop validation has completed the local `job-offer-analyzer` MVP. Commit `96efb67 Add validation and documentation` was accepted, PN-0008 is complete, and IN-0002 is complete for local file-based usage.
 
+The first controlled publication attempt for `job-offer-analyzer` was blocked before repository creation because GitHub CLI authentication for `Jilanos` is invalid. The project remains local, clean, and unpublished; no remote was added and no branch was pushed.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

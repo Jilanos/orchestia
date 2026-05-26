@@ -29,7 +29,8 @@ The project builds a local job offer analyzer for descriptions manually copied b
   - `96efb67 Add validation and documentation`
 - Current Loop state: [LS-0002 Job Offer Analyzer](../logics/loop-states/LS-0002-job-offer-analyzer.md).
 - Completion review: [REVIEW-0050 Job Offer Analyzer Completion](../logics/reviews/REVIEW-0050-job-offer-analyzer-completion.md).
-- Next recommended task: controlled publication or cockpit-driven usage.
+- Publication review: [REVIEW-0051 Job Offer Analyzer Publication](../logics/reviews/REVIEW-0051-job-offer-analyzer-publication.md).
+- Next recommended task: repair GitHub authentication and rerun controlled publication.
 
 ## Initial Need
 
@@ -107,9 +108,21 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 - Finalized [REVIEW-0050 Job Offer Analyzer Completion](../logics/reviews/REVIEW-0050-job-offer-analyzer-completion.md) with decision `accept`.
 - IN-0002 is complete.
 
+## Publication Attempt
+
+- Publication task: [TASK-0056 Publish Job Offer Analyzer](../logics/tasks/TASK-0056-publish-job-offer-analyzer.md).
+- Intended repository URL: `https://github.com/Jilanos/job-offer-analyzer`.
+- Intended branch: `integration`.
+- Current project status: local MVP complete at `96efb67 Add validation and documentation`; publication blocked.
+- Result: blocked before repository creation because `gh auth status` reported an invalid GitHub token for `Jilanos`.
+- No project remote was added.
+- No `integration`, `main`, or `master` branch was pushed.
+- No merge, force push, rebase, tag, or branch deletion occurred.
+- Documentation: [Job Offer Analyzer Publication](job-offer-analyzer-publication.md).
+
 ## Next Planned Task
 
-Prepare controlled publication or cockpit-driven usage if desired.
+Repair GitHub authentication and rerun controlled publication.
 
 ## Constraints And Non-Goals
 
@@ -140,6 +153,8 @@ The project must not:
 All input must be manually provided by the user as local text, Markdown, or pasted job descriptions.
 
 The PN-0005 parsing execution, PN-0006 scoring execution, and PN-0007 reporting execution preserved this policy. No scraping, browser automation, LinkedIn API, external API, dependency install, package metadata, project remote, project push, or project merge was added.
+
+The publication attempt preserved this policy. No scraping, browser automation, LinkedIn API, external API, dependency install, package metadata, project remote, project push, or project merge was added.
 
 ## Validation Commands
 
