@@ -56,6 +56,8 @@ The controlled publication retry for `job-offer-analyzer` succeeded after GitHub
 
 v0.2-beta readiness is documented in [v0.2-beta Readiness](v0.2-beta-readiness.md). The first cockpit action layer has started, adding draft need intake, Loop dashboard, iteration timeline, token usage evidence, and safe autonomous-loop instruction/stop controls while keeping Codex execution, push, and merge out of the browser.
 
+v0.2-beta release readiness is complete and recorded in [v0.2-beta Release](v0.2-beta-release.md). The beta remains human-supervised and not production-ready.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.

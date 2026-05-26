@@ -17,7 +17,7 @@ The MVP foundation is in place:
 
 Orchestia is not an autonomous agent framework. It is a documented, human-supervised workflow.
 
-Current release status: `v0.2-alpha` is documented in [v0.2-alpha Release](docs/v0.2-alpha-release.md). It is not production-ready and remains human-supervised.
+Current release status: `v0.2-beta` is documented in [v0.2-beta Release](docs/v0.2-beta-release.md). It is not production-ready and remains human-supervised.
 
 ## Execution Modes
 
