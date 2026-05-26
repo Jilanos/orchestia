@@ -9,6 +9,7 @@ This file is the compact current-state reference for future Orchestia tasks. Upd
 - Repository: `~/ai-workspaces/orchestia`
 - Primary branch: `master`
 - Current v0.3 baseline commit: `e9c3175 Add end-to-end orchestration run`
+- Latest known commit before TASK-0065: `b81113f Add compact Codex operating context`
 - Remote: `origin https://github.com/Jilanos/orchestia.git`
 - Latest release tag: `v0.2-beta`
 - Active development line: `v0.3`
@@ -32,7 +33,9 @@ This file is the compact current-state reference for future Orchestia tasks. Upd
 
 ## Active v0.3 Capabilities
 
+- v0.3 is active.
 - `scripts/orchestia_loop.sh orchestration-run` exists.
+- `orchestration-run` is implemented.
 - `orchestration-run` can connect need intake or Loop state evidence to Logics drafts, prompt evidence, Codex execution, tests, review evidence, Loop advancement evidence, and controlled auto-push when explicitly authorized.
 - Default `orchestration-run` behavior is dry-run evidence and command preview.
 - Auto-push refuses protected `main` and `master` branches by default.
@@ -48,6 +51,11 @@ This file is the compact current-state reference for future Orchestia tasks. Upd
 - Browser-triggered execution must remain explicit, guarded, and validated before expansion.
 - Token usage is evidence-based and may be unavailable when runs do not record it.
 - Publication and merge actions remain separate controlled workflows.
+
+## Next Focus
+
+- Token-efficient operation through shared compact prompt references.
+- Real local workspace validation for `orchestration-run` without GitHub remotes.
 
 ## How Future Prompts Should Use This
 

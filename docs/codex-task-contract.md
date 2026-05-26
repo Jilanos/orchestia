@@ -43,6 +43,8 @@ Stop and report instead of improvising when:
 
 ## How Future Prompts Should Use This
 
+For routine tasks, use [Compact Prompt Mode](compact-prompt-mode.md) with this contract instead of writing a long standalone prompt.
+
 Use a short reference block:
 
 ```text
