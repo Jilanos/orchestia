@@ -55,6 +55,7 @@ This file is the compact current-state reference for future Orchestia tasks. Upd
 ## Next Focus
 
 - Token-efficient operation through shared compact prompt references.
+- Optional RTK output compression and Caveman communication compression when safety-critical facts remain explicit.
 - Real local workspace validation for `orchestration-run` without GitHub remotes.
 
 ## How Future Prompts Should Use This

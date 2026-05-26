@@ -185,3 +185,5 @@ Acceptance:
 ## Usage Rule
 
 Future prompts should cite Compact Prompt Mode by name and include only the sections needed for the task. Use long prompts only when the risk or command ordering justifies the extra tokens.
+
+Optional Caveman-style communication may be used for compact handoffs only when file paths, decisions, blockers, validation results, and safety-critical facts remain explicit.

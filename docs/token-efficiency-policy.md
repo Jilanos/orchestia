@@ -20,8 +20,15 @@ Use reference-over-repetition as the default. A future prompt should cite stable
 - `docs/orchestia-standard-validation.md`
 - `docs/orchestia-safety-policy-compact.md`
 - `docs/compact-prompt-mode.md`
+- `docs/token-efficiency-tooling.md` when optional RTK or Caveman guidance is relevant
 
 Then it should add only the task-specific objective, authorized files, forbidden actions, verification commands, and Git instructions.
+
+## Optional Tooling Rule
+
+RTK may be used as optional output compression for long command results. Caveman may be used as optional communication compression for compact handoffs. Neither tool is required, and missing tools should fall back to concise plain text summaries and Compact Prompt Mode.
+
+Compression must not remove safety-critical facts. Keep dirty working trees, failed checks, unauthorized files, protected branches, remotes, destructive commands, secret risks, decisions, blockers, and exact evidence paths explicit.
 
 ## Compact Review Rule
 
