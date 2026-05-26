@@ -17,11 +17,13 @@ The project builds a local job offer analyzer for descriptions manually copied b
 - Local project repository initialized.
 - Foundation primary need accepted.
 - Parsing primary need accepted.
+- Scoring primary need accepted.
 - Local project commits:
   - `6df941b Initialize job offer analyzer`
   - `22d431b Improve job offer parsing`
+  - `c37d597 Add job offer scoring`
 - Current Loop state: [LS-0002 Job Offer Analyzer](../logics/loop-states/LS-0002-job-offer-analyzer.md).
-- Next primary need: [PN-0006 Job Offer Scoring](../logics/primary-needs/PN-0006-job-offer-scoring.md).
+- Next primary need: [PN-0007 Job Offer Reporting](../logics/primary-needs/PN-0007-job-offer-reporting.md).
 
 ## Initial Need
 
@@ -33,7 +35,7 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 
 - [PN-0004 Job Offer Analyzer Foundation](../logics/primary-needs/PN-0004-job-offer-analyzer-foundation.md): complete.
 - [PN-0005 Job Offer Parsing](../logics/primary-needs/PN-0005-job-offer-parsing.md): complete.
-- [PN-0006 Job Offer Scoring](../logics/primary-needs/PN-0006-job-offer-scoring.md): planned.
+- [PN-0006 Job Offer Scoring](../logics/primary-needs/PN-0006-job-offer-scoring.md): complete.
 - [PN-0007 Job Offer Reporting](../logics/primary-needs/PN-0007-job-offer-reporting.md): planned.
 - [PN-0008 Job Offer Validation Docs](../logics/primary-needs/PN-0008-job-offer-validation-docs.md): planned.
 
@@ -59,7 +61,20 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 
 ## Next Planned Task
 
-Prepare the scoring request, backlog item, task, and Codex prompt for deterministic local scoring against user-defined criteria.
+Prepare the reporting request, backlog item, task, and Codex prompt for Markdown report generation and recruiter questions.
+
+## Completed Scoring Work
+
+- Prepared [REQ-0007 Job Offer Scoring](../logics/requests/REQ-0007-job-offer-scoring.md), [BL-0009 Job Offer Scoring](../logics/backlog/BL-0009-job-offer-scoring.md), and [TASK-0050 Implement Job Offer Scoring](../logics/tasks/TASK-0050-implement-job-offer-scoring.md).
+- Ran autonomous-loop evidence capture at `task-runs/20260526T084858Z-autonomous-loop/`.
+- Executed Codex with `codex exec --sandbox workspace-write` against `/home/pmondou/ai-workspaces/job-offer-analyzer`.
+- Completed one autonomous cycle with decision `accept`.
+- Added deterministic local scoring for technical fit, seniority fit, work mode fit, role clarity, red flag penalty, total score, and recommendation.
+- Updated README, product brief, and smoke tests.
+- Committed local project scoring work as `c37d597 Add job offer scoring`.
+- Finalized [REVIEW-0045 Job Offer Scoring Execution](../logics/reviews/REVIEW-0045-job-offer-scoring-execution.md) with decision `accept`.
+- Finalized [REVIEW-0046 Autonomous Loop Job Offer Analyzer](../logics/reviews/REVIEW-0046-autonomous-loop-job-offer-analyzer.md) with decision `accept`.
+- The autonomous-loop stopped after the accepted scoring cycle because the next reporting prompt is not prepared yet; LS-0002 was advanced after review.
 
 ## Constraints And Non-Goals
 
@@ -89,7 +104,7 @@ The project must not:
 
 All input must be manually provided by the user as local text, Markdown, or pasted job descriptions.
 
-The PN-0005 parsing execution preserved this policy. No scraping, browser automation, LinkedIn API, external API, dependency install, package metadata, project remote, project push, or project merge was added.
+The PN-0005 parsing execution and PN-0006 scoring execution preserved this policy. No scraping, browser automation, LinkedIn API, external API, dependency install, package metadata, project remote, project push, or project merge was added.
 
 ## Validation Commands
 
@@ -102,11 +117,12 @@ python3 -m src.job_offer_analyzer analyze examples/job-offer-sample.md
 git diff --check
 ```
 
-The PN-0005 validation also verified that the project has no Git remote and that `src` and `tests` do not contain forbidden implementation imports for scraping or browser automation libraries.
+The PN-0005 and PN-0006 validations also verified that the project has no Git remote and that `src` and `tests` do not contain forbidden implementation imports for scraping or browser automation libraries.
 
 ## Known Risks
 
 - Parser output is more structured but still heuristic.
 - Keyword, language, and seniority detection can overmatch or miss unusual phrasing.
+- Score values are deterministic but still heuristic and should be presented as prioritization hints.
 - Future scoring and reporting need explicit criteria and tests.
 - Compliance boundaries must remain visible in every future task.

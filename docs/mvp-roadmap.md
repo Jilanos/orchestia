@@ -46,6 +46,8 @@ The real mini project validation has advanced through job offer parsing using co
 
 Autonomous local loop mode has been introduced in `scripts/orchestia_loop.sh` and validated on a disposable workspace under `task-runs/`. It can run multiple local Codex cycles with explicit execution authorization, auto-accept only passing cycles when policy allows it, and stop safely when the next state is missing or ambiguous.
 
+Real mini project autonomous-loop validation has run against `job-offer-analyzer` for scoring. Commit `c37d597 Add job offer scoring` was accepted, and LS-0002 now points to the reporting primary need.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
