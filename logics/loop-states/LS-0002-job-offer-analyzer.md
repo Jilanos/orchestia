@@ -5,20 +5,20 @@
 - ID: LS-0002
 - Status: active
 - Initial need: [IN-0002 Job Offer Analyzer](../initial-needs/IN-0002-job-offer-analyzer.md)
-- Primary need: [PN-0007 Job Offer Reporting](../primary-needs/PN-0007-job-offer-reporting.md)
+- Primary need: [PN-0008 Job Offer Validation Docs](../primary-needs/PN-0008-job-offer-validation-docs.md)
 
 ## Loop State
 
 - Current initial need: [IN-0002 Job Offer Analyzer](../initial-needs/IN-0002-job-offer-analyzer.md)
-- Current primary need: [PN-0007 Job Offer Reporting](../primary-needs/PN-0007-job-offer-reporting.md)
-- Current request: planned reporting request
-- Current backlog item: planned reporting backlog
-- Current task: planned reporting task
+- Current primary need: [PN-0008 Job Offer Validation Docs](../primary-needs/PN-0008-job-offer-validation-docs.md)
+- Current request: planned validation/docs request
+- Current backlog item: planned validation/docs backlog
+- Current task: planned validation/docs task
 - Prepared Codex prompt: None
-- Last Codex run: local project commit `c37d597 Add job offer scoring`
-- Last review: [REVIEW-0046 Autonomous Loop Job Offer Analyzer](../reviews/REVIEW-0046-autonomous-loop-job-offer-analyzer.md)
+- Last Codex run: local project commit `dc6792f Add job offer reporting`
+- Last review: [REVIEW-0048 Autonomous Loop Job Offer Reporting](../reviews/REVIEW-0048-autonomous-loop-job-offer-reporting.md)
 - Decision: accept
-- Next action: prepare reporting task
+- Next action: prepare validation/docs task
 - Stop condition: continue until all primary needs are complete or a firm blocker is documented
 - Next primary need: None
 - Next request: None
@@ -48,6 +48,13 @@ Allowed values: accept, revise, split, reject.
 - Autonomous-loop evidence: `task-runs/20260526T084858Z-autonomous-loop/`
 - Project commit: `c37d597 Add job offer scoring`
 - Review: [REVIEW-0045 Job Offer Scoring Execution](../reviews/REVIEW-0045-job-offer-scoring-execution.md)
+- Completed primary need: [PN-0007 Job Offer Reporting](../primary-needs/PN-0007-job-offer-reporting.md)
+- Completed request: [REQ-0008 Job Offer Reporting](../requests/REQ-0008-job-offer-reporting.md)
+- Completed backlog item: [BL-0010 Job Offer Reporting](../backlog/BL-0010-job-offer-reporting.md)
+- Completed task: [TASK-0052 Implement Job Offer Reporting](../tasks/TASK-0052-implement-job-offer-reporting.md)
+- Autonomous-loop evidence: `task-runs/20260526T090931Z-autonomous-loop/`
+- Project commit: `dc6792f Add job offer reporting`
+- Review: [REVIEW-0047 Job Offer Reporting Execution](../reviews/REVIEW-0047-job-offer-reporting-execution.md)
 
 ## Stop Condition
 
@@ -68,4 +75,4 @@ Allowed values:
 
 ## Next Action
 
-- Prepare reporting request, backlog item, task, and Codex prompt.
+- Prepare validation/docs request, backlog item, task, and Codex prompt.

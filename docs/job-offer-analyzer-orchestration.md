@@ -18,12 +18,14 @@ The project builds a local job offer analyzer for descriptions manually copied b
 - Foundation primary need accepted.
 - Parsing primary need accepted.
 - Scoring primary need accepted.
+- Reporting primary need accepted.
 - Local project commits:
   - `6df941b Initialize job offer analyzer`
   - `22d431b Improve job offer parsing`
   - `c37d597 Add job offer scoring`
+  - `dc6792f Add job offer reporting`
 - Current Loop state: [LS-0002 Job Offer Analyzer](../logics/loop-states/LS-0002-job-offer-analyzer.md).
-- Next primary need: [PN-0007 Job Offer Reporting](../logics/primary-needs/PN-0007-job-offer-reporting.md).
+- Next primary need: [PN-0008 Job Offer Validation Docs](../logics/primary-needs/PN-0008-job-offer-validation-docs.md).
 
 ## Initial Need
 
@@ -36,7 +38,7 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 - [PN-0004 Job Offer Analyzer Foundation](../logics/primary-needs/PN-0004-job-offer-analyzer-foundation.md): complete.
 - [PN-0005 Job Offer Parsing](../logics/primary-needs/PN-0005-job-offer-parsing.md): complete.
 - [PN-0006 Job Offer Scoring](../logics/primary-needs/PN-0006-job-offer-scoring.md): complete.
-- [PN-0007 Job Offer Reporting](../logics/primary-needs/PN-0007-job-offer-reporting.md): planned.
+- [PN-0007 Job Offer Reporting](../logics/primary-needs/PN-0007-job-offer-reporting.md): complete.
 - [PN-0008 Job Offer Validation Docs](../logics/primary-needs/PN-0008-job-offer-validation-docs.md): planned.
 
 ## Completed Foundation Work
@@ -59,10 +61,6 @@ Analyze manually provided job offers copied from LinkedIn or other job boards. T
 - Committed local project parsing work as `22d431b Improve job offer parsing`.
 - Finalized [REVIEW-0043 Job Offer Parsing Execution](../logics/reviews/REVIEW-0043-job-offer-parsing-execution.md) with decision `accept`.
 
-## Next Planned Task
-
-Prepare the reporting request, backlog item, task, and Codex prompt for Markdown report generation and recruiter questions.
-
 ## Completed Scoring Work
 
 - Prepared [REQ-0007 Job Offer Scoring](../logics/requests/REQ-0007-job-offer-scoring.md), [BL-0009 Job Offer Scoring](../logics/backlog/BL-0009-job-offer-scoring.md), and [TASK-0050 Implement Job Offer Scoring](../logics/tasks/TASK-0050-implement-job-offer-scoring.md).
@@ -75,6 +73,24 @@ Prepare the reporting request, backlog item, task, and Codex prompt for Markdown
 - Finalized [REVIEW-0045 Job Offer Scoring Execution](../logics/reviews/REVIEW-0045-job-offer-scoring-execution.md) with decision `accept`.
 - Finalized [REVIEW-0046 Autonomous Loop Job Offer Analyzer](../logics/reviews/REVIEW-0046-autonomous-loop-job-offer-analyzer.md) with decision `accept`.
 - The autonomous-loop stopped after the accepted scoring cycle because the next reporting prompt is not prepared yet; LS-0002 was advanced after review.
+
+## Completed Reporting Work
+
+- Prepared [REQ-0008 Job Offer Reporting](../logics/requests/REQ-0008-job-offer-reporting.md), [BL-0010 Job Offer Reporting](../logics/backlog/BL-0010-job-offer-reporting.md), and [TASK-0052 Implement Job Offer Reporting](../logics/tasks/TASK-0052-implement-job-offer-reporting.md).
+- Ran autonomous-loop evidence capture at `task-runs/20260526T090931Z-autonomous-loop/`.
+- Executed Codex with `codex exec --sandbox workspace-write` against `/home/pmondou/ai-workspaces/job-offer-analyzer`.
+- Completed one autonomous cycle with decision `accept`.
+- Added deterministic local Markdown reporting through a `report` command, `analyze --report`, and optional local `--output` file support.
+- Reports include extracted fields, score details, strengths, weaknesses, red flags, recruiter questions, recommendation, and next actions.
+- Updated README, product brief, and smoke tests.
+- Committed local project reporting work as `dc6792f Add job offer reporting`.
+- Finalized [REVIEW-0047 Job Offer Reporting Execution](../logics/reviews/REVIEW-0047-job-offer-reporting-execution.md) with decision `accept`.
+- Finalized [REVIEW-0048 Autonomous Loop Job Offer Reporting](../logics/reviews/REVIEW-0048-autonomous-loop-job-offer-reporting.md) with decision `accept`.
+- The autonomous-loop stopped after the accepted reporting cycle because the next validation/docs prompt is not prepared yet; LS-0002 was advanced after review.
+
+## Next Planned Task
+
+Prepare the validation/docs request, backlog item, task, and Codex prompt.
 
 ## Constraints And Non-Goals
 
@@ -104,7 +120,7 @@ The project must not:
 
 All input must be manually provided by the user as local text, Markdown, or pasted job descriptions.
 
-The PN-0005 parsing execution and PN-0006 scoring execution preserved this policy. No scraping, browser automation, LinkedIn API, external API, dependency install, package metadata, project remote, project push, or project merge was added.
+The PN-0005 parsing execution, PN-0006 scoring execution, and PN-0007 reporting execution preserved this policy. No scraping, browser automation, LinkedIn API, external API, dependency install, package metadata, project remote, project push, or project merge was added.
 
 ## Validation Commands
 
@@ -114,15 +130,17 @@ python3 -m compileall src tests
 python3 -m unittest discover -s tests
 python3 -m src.job_offer_analyzer --help
 python3 -m src.job_offer_analyzer analyze examples/job-offer-sample.md
+python3 -m src.job_offer_analyzer report examples/job-offer-sample.md
 git diff --check
 ```
 
-The PN-0005 and PN-0006 validations also verified that the project has no Git remote and that `src` and `tests` do not contain forbidden implementation imports for scraping or browser automation libraries.
+The PN-0005, PN-0006, and PN-0007 validations also verified that the project has no Git remote and that `src` and `tests` do not contain forbidden implementation imports for scraping or browser automation libraries.
 
 ## Known Risks
 
 - Parser output is more structured but still heuristic.
 - Keyword, language, and seniority detection can overmatch or miss unusual phrasing.
 - Score values are deterministic but still heuristic and should be presented as prioritization hints.
-- Future scoring and reporting need explicit criteria and tests.
+- Future validation/docs work needs explicit criteria and tests.
+- Reporting questions are deterministic and generic until user-defined criteria are added.
 - Compliance boundaries must remain visible in every future task.

@@ -48,6 +48,8 @@ Autonomous local loop mode has been introduced in `scripts/orchestia_loop.sh` an
 
 Real mini project autonomous-loop validation has run against `job-offer-analyzer` for scoring. Commit `c37d597 Add job offer scoring` was accepted, and LS-0002 now points to the reporting primary need.
 
+Real mini project autonomous-loop validation has run against `job-offer-analyzer` for reporting. Commit `dc6792f Add job offer reporting` was accepted, and LS-0002 now points to the validation/docs primary need.
+
 ## v0.2 Goal
 
 v0.2 takes an initial user need, decomposes it into primary needs, and for each primary need runs a structured Logics and Codex execution loop until the primary need is complete or a firm blocker is reached.
