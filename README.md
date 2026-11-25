@@ -1,229 +1,69 @@
 # Orchestia
 
-Orchestia is a lightweight operating model for AI-assisted software development. It keeps humans in control while connecting ChatGPT Business planning and review, bounded Codex CLI execution, Git diffs, test evidence, and Logics-style project memory.
+A human-supervised workflow for AI-assisted software development: ChatGPT plans and reviews, Codex CLI executes bounded local tasks, Git stays the source of truth, and Logics-style files keep the project memory.
 
-## MVP Status
+## Problem
 
-The MVP foundation is in place:
+AI coding agents drift when they get large, vague tasks, and their work is hard to audit. Orchestia is for a developer who wants to keep control. Each task has a written scope, acceptance criteria and verification commands. Diffs, test output and reviews are stored as evidence in the repository.
 
-- Public GitHub repository.
-- WSL-first Linux workspace.
-- Initial repository scaffold.
-- Tracked Logics directories.
-- Initial Logics project memory.
-- Safe helper scripts for environment checks and task output collection.
-- `.gitignore` policy for generated runtime output and local artifacts.
-- Reusable prompt templates for research, planning, Codex tasks, reviews, and repository audits.
+It is not an autonomous agent framework. Every step that writes outside the task scope, pushes or merges needs an explicit human decision.
 
-Orchestia is not an autonomous agent framework. It is a documented, human-supervised workflow.
+## Features
 
-Current release status: `v0.2-beta` is documented in [v0.2-beta Release](docs/v0.2-beta-release.md). It is not production-ready and remains human-supervised.
+- Prompt templates for research, planning, Codex tasks, reviews and repository audits (`prompts/`).
+- Logics records for needs, requests, backlog items, tasks, specs, ADRs and reviews (`logics/`).
+- Shell helpers for environment checks, repo audits, diff and test evidence, and bounded Codex commands (`scripts/`).
+- `scripts/orchestia_loop.sh`: state-driven loop with dry-run by default, `auto-loop`, `autonomous-loop`, and `orchestration-run` (need intake to Logics drafts, Codex execution, tests, review evidence).
+- `scripts/controlled_git_flow.sh`: dry-run by default; push and merge need `--execute`, `main` and `master` are protected, force push is forbidden, failed tests block execution.
+- `scripts/orchestia_ui.py`: local cockpit on `http://127.0.0.1:8765` to browse Loop state, runs, Logics records, reviews and token evidence, and to create draft need intakes. It cannot run Codex, push or merge.
+- `scripts/validate_negative_paths.sh`: checks that unsafe actions are refused.
 
-Planning for `v0.3` has started in [v0.3 Roadmap](docs/v0.3-roadmap.md). The next direction is cockpit-driven orchestration with explicit human confirmations.
+## Quick start
 
-The v0.3 cockpit can now generate draft-only Logics files from a need intake under `task-runs/` for human review. It does not promote drafts into final `logics/` records.
-
-The first v0.3 end-to-end `orchestration-run` command is available for disposable or reviewed local workflows. It records policy evidence, can execute Codex with explicit authorization, and can delegate controlled auto-push to `controlled_git_flow.sh` for non-protected branches.
-
-## Execution Modes
-
-Orchestia policy defines Manual mode, Assisted mode, Auto branch mode, and Controlled auto merge mode. Auto push and auto merge are policy-gated for fresh projects or isolated branches; `main` and `master` stay protected by default.
-
-For v0.2, Orchestia is moving toward iterative need-to-completion orchestration: initial need, primary needs, requests, backlog items, tasks, Codex execution, collected evidence, review, and repeat until complete or blocked. Controlled auto push and controlled auto merge are planned only for fresh projects or isolated branches under explicit guardrails. Orchestia remains human-supervised, not fully autonomous.
-
-The minimal v0.2 state model is documented in [Orchestration State Model](docs/orchestration-state-model.md), with initial need, primary need, and loop state templates under `logics/templates/`.
-
-v0.2 orchestration prompts live in `prompts/initial_need_intake_prompt.md`, `prompts/primary_need_decomposition_prompt.md`, and `prompts/orchestration_loop_prompt.md`.
-
-## Repository Structure
-
-```text
-.
-├── AGENTS.md
-├── PROJECT_BRIEF.md
-├── README.md
-├── docs/
-│   ├── architecture.md
-│   ├── mvp-roadmap.md
-│   ├── security-boundaries.md
-│   └── workflow.md
-├── prompts/
-│   ├── codex_task_prompt.md
-│   ├── initial_need_intake_prompt.md
-│   ├── orchestration_loop_prompt.md
-│   ├── planning_prompt.md
-│   ├── primary_need_decomposition_prompt.md
-│   ├── repo_audit_prompt.md
-│   ├── research_prompt.md
-│   └── review_prompt.md
-├── scripts/
-│   ├── check_environment.sh
-│   ├── audit_repo.sh
-│   ├── collect_diff.sh
-│   ├── collect_test_results.sh
-│   ├── run_codex_task.sh
-│   └── summarize_task_result.sh
-├── logics/
-│   ├── requests/
-│   ├── backlog/
-│   ├── tasks/
-│   ├── templates/
-│   ├── specs/
-│   ├── adr/
-│   └── reviews/
-└── task-runs/
-```
-
-## WSL-First Setup
-
-Use a WSL 2 Ubuntu shell and keep the repository under the Linux filesystem, not under `/mnt/c`, unless a human explicitly approves the mounted Windows path.
+Use WSL 2 Ubuntu or Linux, with the repository on the Linux filesystem (not `/mnt/c`). Required: `bash`, `git`. Optional: `gh`, `node`, `npm`, `codex`.
 
 ```bash
 git clone https://github.com/Jilanos/orchestia.git
 cd orchestia
-pwd
-```
-
-## Basic Commands
-
-Check the local environment:
-
-```bash
 bash scripts/check_environment.sh
+bash scripts/validate_negative_paths.sh
+python3 scripts/orchestia_ui.py
 ```
 
-Generate a local Markdown repository audit:
-
-```bash
-bash scripts/audit_repo.sh
-```
-
-Print a bounded Codex CLI command without executing it:
+Print a bounded Codex command without running it, then collect evidence:
 
 ```bash
 bash scripts/run_codex_task.sh logics/tasks/TASK-0001-initial-scaffold.md
-```
-
-Execute Codex only when the task scope is approved:
-
-```bash
-bash scripts/run_codex_task.sh --execute logics/tasks/TASK-0001-initial-scaffold.md
-```
-
-Collect Git status, diff, diff stat, and recent log output:
-
-```bash
 bash scripts/collect_diff.sh
-```
-
-Capture a test command result:
-
-```bash
 bash scripts/collect_test_results.sh -- bash -n scripts/check_environment.sh
-```
-
-Summarize the latest local task run:
-
-```bash
 bash scripts/summarize_task_result.sh
 ```
 
-Inspect or assist a v0.2 state-driven loop step:
+Inspect a loop step (read only):
 
 ```bash
 bash scripts/orchestia_loop.sh status logics/loop-states/LS-0001-sample-todo-cli.md
 bash scripts/orchestia_loop.sh next logics/loop-states/LS-0001-sample-todo-cli.md
 ```
 
-The state-driven runner can print a Codex command, collect workspace evidence, and create a review draft. It does not update Loop state, push, merge, or make review decisions.
+Everything else (`git-flow`, `finalize-review`, `auto-loop`, `autonomous-loop`, `orchestration-run`) is documented in `docs/` and in the usage text of `scripts/orchestia_loop.sh`. Execution flags such as `--execute-codex` or `--execute` are always explicit.
 
-Generate a controlled Git flow handoff from Loop state to copyable Git commands:
+## Workflow
 
-```bash
-bash scripts/orchestia_loop.sh git-flow logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --remote origin --source-branch feature/example --target-branch integration --test "python3 -m unittest discover -s tests"
-```
+1. Write a request in `logics/requests/`.
+2. Research and plan with the prompts in `prompts/`.
+3. Give Codex one scoped task.
+4. Collect diffs and test results into `task-runs/`.
+5. Review with `prompts/review_prompt.md`.
+6. Record the decision in `logics/reviews/` and pick the next task.
 
-The handoff creates evidence under `task-runs/` and prints `controlled_git_flow.sh` status, dry-run, and human-approved execute commands. It does not push or merge.
+## Tech stack
 
-Draft a review from Git-flow evidence:
+Bash, Python 3 (standard library, for the cockpit), Git, Codex CLI, Markdown.
 
-```bash
-bash scripts/orchestia_loop.sh git-flow-review-draft logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --evidence-dir task-runs/example-controlled-git-flow
-```
+## Status
 
-The draft is written under `task-runs/`; final Logics reviews and Loop state updates remain human-controlled.
-
-Finalize a human-approved review draft into Logics memory:
-
-```bash
-bash scripts/orchestia_loop.sh finalize-review --draft task-runs/example/review-draft.md --review-id REVIEW-0031 --review-title "Example review" --reviewed-task TASK-0031 --decision accept
-```
-
-`finalize-review` requires an explicit decision and writes only to `logics/reviews/`. It does not update Loop state, push, or merge.
-
-Run a controlled auto-loop checkpoint in dry-run mode:
-
-```bash
-bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --max-steps 1
-bash scripts/orchestia_loop.sh auto-loop-status task-runs/example-auto-loop
-bash scripts/orchestia_loop.sh auto-loop-instruct task-runs/example-auto-loop "Prefer minimal changes."
-bash scripts/orchestia_loop.sh auto-loop-stop task-runs/example-auto-loop "Stop before merge."
-```
-
-`auto-loop` creates evidence under `task-runs/`, previews commands, supports instruction and stop files, and can advance Loop state only with an explicit decision plus `--advance` and required fields. Execution still requires explicit flags such as `--execute-codex`, `--execute-git-flow`, or `--execute-all`.
-
-Execute the active prepared Codex prompt non-interactively only when explicitly authorized:
-
-```bash
-bash scripts/orchestia_loop.sh auto-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --max-steps 1 --execute-codex --test "python3 -m unittest discover -s tests"
-```
-
-Executable auto-loop mode uses `codex exec --sandbox workspace-write` from the verified target workspace, captures stdout, stderr, exit code, workspace status, diff stat, recent commits, and optional test output under `task-runs/`. The default remains dry-run, and auto-loop still does not decide, push, merge, commit, or advance Loop state unless the required explicit decision and advancement arguments are supplied.
-
-Run a local autonomous loop over explicit prepared prompts:
-
-```bash
-bash scripts/orchestia_loop.sh autonomous-loop logics/loop-states/LS-0001-sample-todo-cli.md --workspace ~/ai-workspaces/example-project --max-cycles 2
-```
-
-`autonomous-loop` is dry-run by default. With `--execute-codex`, `--auto-accept-if-checks-pass`, and `--advance-if-next-ready`, it can run multiple local cycles, capture per-cycle evidence, auto-accept only passing cycles, and advance only when the next state is explicit. It never pushes or merges.
-
-Start the local cockpit:
-
-```bash
-python3 scripts/orchestia_ui.py
-```
-
-Open `http://127.0.0.1:8765` to inspect Loop state, auto-loop runs, autonomous-loop runs, task-runs, Logics records, reviews, and debug status. The v0.2-beta cockpit action layer also adds Needs, Loop Dashboard, Iterations, and Tokens pages. It can create draft need intake files and append autonomous-loop instruction or stop request files under `task-runs/`.
-
-For v0.3 planning, the cockpit can also generate Logics draft files from a need intake under `task-runs/*-logics-draft/`. Promotion to final Logics records remains a human review step and future guarded action.
-
-The cockpit also lists orchestration-run evidence and can create an orchestration request with a copyable command preview. It does not execute the orchestration-run from the browser.
-
-The cockpit action layer does not execute Codex, push, merge, run controlled Git flow, or provide arbitrary command execution from the browser.
-
-Inspect or dry-run controlled Git flow automation:
-
-```bash
-bash scripts/controlled_git_flow.sh status --workspace ~/ai-workspaces/example-project
-bash scripts/controlled_git_flow.sh auto-push --workspace ~/ai-workspaces/example-project --remote origin --branch feature/example
-bash scripts/controlled_git_flow.sh auto-merge --workspace ~/ai-workspaces/example-project --remote origin --source-branch feature/example --target-branch integration
-```
-
-`scripts/controlled_git_flow.sh` defaults to dry-run. Auto-push and auto-merge require `--execute`; `main/master` are protected by default, force push is forbidden, and failed tests block execution.
-
-The audit script writes `repo-audit.md` under a timestamped `task-runs/` directory. Paste that report into ChatGPT Business with `prompts/repo_audit_prompt.md` when you want a repository-level review.
-
-## MVP Workflow
-
-1. Create or update a request in `logics/requests/`.
-2. Research with `prompts/research_prompt.md`.
-3. Plan backlog slices and bounded tasks with `prompts/planning_prompt.md`.
-4. Give Codex CLI one scoped task using `prompts/codex_task_prompt.md`.
-5. Collect diffs and test results into `task-runs/`.
-6. Optionally generate `task-runs/.../repo-audit.md` with `scripts/audit_repo.sh`.
-7. Review the result with `prompts/review_prompt.md` or audit the repository with `prompts/repo_audit_prompt.md`.
-8. Record decisions in `logics/reviews/` and select the next task.
+Release `v0.2-beta` is documented in [v0.2-beta Release](docs/v0.2-beta-release.md). It is not production-ready. Work on `v0.3` (cockpit-driven orchestration with explicit confirmations) is in progress: see [v0.3 Roadmap](docs/v0.3-roadmap.md) and [current state](docs/orchestia-current-state.md). The workflow was validated on small sample projects, for example [orchestia-sample-todo-cli](https://github.com/Jilanos/orchestia-sample-todo-cli). There is no automated unit test suite; validation uses the scripts above and the checklists in `docs/`.
 
 ## Safety Warning
 
